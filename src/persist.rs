@@ -31,7 +31,6 @@ impl<'a> PersistenJson<'a> {
         let path = self.dir.join(&filename).with_extension("json");
         let json = serde_json::to_string::<Item>(&item)?;
         let mut file = self.open_file(&path)?;
-        dbg!(&json, &file, path);
         write!(file, "{}", json)?;
         Ok(())
     }
