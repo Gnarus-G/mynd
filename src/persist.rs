@@ -31,10 +31,8 @@ impl<'a> PersistenJson<'a> {
         &mut self,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        let filename = [self.file_prefix, item.id()].join("-");
-        let path = self.dir.join(&filename).with_extension("json");
         let json = serde_json::to_string::<Item>(&item)?;
-        let mut file = self.open_file(&path)?;
+        let mut file = self.open_file(&self.get_filename(item.id()))?;
         write!(file, "{}", json)?;
         Ok(())
     }
@@ -47,6 +45,11 @@ impl<'a> PersistenJson<'a> {
             .open(path)?;
 
         Ok(file)
+    }
+
+    fn get_filename(&self, id: &str) -> PathBuf {
+        let basename = [self.file_prefix, id].join("-");
+        self.dir.join(basename).with_extension("json")
     }
 
     fn read_item<Item: DeserializeOwned + Serialize>(
@@ -73,5 +76,14 @@ impl<'a> PersistenJson<'a> {
             .collect();
 
         Ok(items)
+    }
+
+    pub fn remove_all(&self, ids: &[String]) {
+        for path in ids.iter().map(|id| self.get_filename(id)) {
+            match fs::remove_file(&path) {
+                Err(e) => eprintln!("couldn't remove {path:?}; {e}"),
+                _ => {}
+            }
+        }
     }
 }

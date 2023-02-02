@@ -20,3 +20,9 @@ impl Default for TodoTime {
         Self(chrono::Utc::now())
     }
 }
+
+impl TodoTime {
+    pub fn now() -> Self {
+        Self(chrono::Utc::now())
+    }
+}
