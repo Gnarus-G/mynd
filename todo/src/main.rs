@@ -1,13 +1,17 @@
 use std::error::Error;
 
-use chrono::Utc;
 use clap::Parser;
-use mynd::persist::PersistenJson;
+use mynd::{
+    persist::{HasId, PersistenJson},
+    TodoID, TodoTime,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Serialize, Deserialize, Debug)]
 #[command(author, version, about)]
 struct Todo {
+    #[arg(skip)]
+    id: TodoID,
     /// What to do.
     message: Option<String>,
     /// A measure of how much of a drag this will be.
@@ -21,12 +25,9 @@ struct Todo {
     created_at: TodoTime,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
-struct TodoTime(chrono::DateTime<Utc>);
-
-impl Default for TodoTime {
-    fn default() -> Self {
-        Self(Utc::now())
+impl HasId for Todo {
+    fn id(&self) -> &str {
+        &self.id.0
     }
 }
 

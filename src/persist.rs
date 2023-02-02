@@ -7,6 +7,10 @@ use std::{
 
 use serde::{de::DeserializeOwned, Serialize};
 
+pub trait HasId {
+    fn id(&self) -> &str;
+}
+
 #[derive(Debug)]
 pub struct PersistenJson<'a> {
     file_prefix: &'a str,
@@ -23,11 +27,11 @@ impl<'a> PersistenJson<'a> {
         Ok(Self { dir, file_prefix })
     }
 
-    pub fn add<Item: DeserializeOwned + Serialize>(
+    pub fn add<Item: DeserializeOwned + Serialize + HasId>(
         &mut self,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        let filename = [self.file_prefix, &cuid2::cuid()].join("-");
+        let filename = [self.file_prefix, item.id()].join("-");
         let path = self.dir.join(&filename).with_extension("json");
         let json = serde_json::to_string::<Item>(&item)?;
         let mut file = self.open_file(&path)?;

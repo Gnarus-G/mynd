@@ -416,6 +416,7 @@ dependencies = [
 name = "mynd"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "cuid2",
  "serde",
  "serde_json",
@@ -796,7 +797,6 @@ dependencies = [
 name = "todo"
 version = "0.1.0"
 dependencies = [
- "chrono",
  "clap",
  "mynd",
  "serde",
