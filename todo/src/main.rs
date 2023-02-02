@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use chrono::Utc;
 use clap::Parser;
 use mynd::persist::PersistenJson;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,18 @@ struct Todo {
     /// A message of how important this is to do.
     #[arg(short, long, action = clap::ArgAction::Count)]
     priority: u8,
+
+    #[arg(skip)]
+    created_at: TodoTime,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
+struct TodoTime(chrono::DateTime<Utc>);
+
+impl Default for TodoTime {
+    fn default() -> Self {
+        Self(Utc::now())
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -24,7 +37,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match todo.message {
         Some(_) => tp.add(todo)?,
-        None => println!("{}", serde_json::to_string(&tp.items::<Todo>()?)?),
+        None => {
+            let mut todos = tp.items::<Todo>()?;
+
+            todos.sort_by(|a, b| {
+                a.created_at
+                    .partial_cmp(&b.created_at)
+                    .expect("comparison is possible")
+            });
+
+            println!("{}", serde_json::to_string(&todos)?);
+        }
     }
 
     Ok(())
