@@ -5,6 +5,7 @@
   type Todo = {
     id: string;
     message: string;
+    done?: boolean;
   };
 
   let todos: Todo[] = [];
@@ -24,6 +25,10 @@
 
   async function removeTodo(id: string) {
     todos = await invoke("remove", { id });
+  }
+
+  async function cleanTodos() {
+    todos = await invoke("remove_done");
   }
 
   async function moveUp(id: string) {
@@ -48,6 +53,11 @@
       el.value = "";
     }}
   >
+    <button
+      type="button"
+      class="rounded bg-pink-700 hover:bg-pink-800 transition active:scale-90 px-1"
+      on:click={cleanTodos}>&#x1F5D1;</button
+    >
     <input class="rounded px-1" name="todo" />
     <button
       class="rounded-tr-lg rounded bg-green-500 hover:bg-green-600 transition active:scale-90 px-1"
@@ -64,7 +74,12 @@
           class="rounded bg-red-700 hover:bg-red-800 transition active:scale-90 px-2"
           on:click={() => removeTodo(todo.id)}>&times;</button
         >
-        <p class="font-semibold hover:text-white break-words">{todo.message}</p>
+        <p
+          class="font-semibold hover:text-white break-words {todo.done &&
+            'line-through'}"
+        >
+          {todo.message}
+        </p>
         <div class="flex gap-2 w-[70px] border-solid border-1 border-white">
           {#if idx > 0}
             <button

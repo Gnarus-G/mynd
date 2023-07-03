@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{error::Error, fs, path::Path, sync::Mutex};
+use std::{error::Error, fs, sync::Mutex};
 
 use mynd::{
     persist::{path, read_json, write_json},
@@ -14,6 +14,7 @@ struct Todo {
     id: TodoID,
     message: String,
     created_at: TodoTime,
+    done: bool,
 }
 
 impl Todo {
@@ -22,6 +23,7 @@ impl Todo {
             id: Default::default(),
             message,
             created_at: Default::default(),
+            done: false,
         }
     }
 }
@@ -46,11 +48,11 @@ impl Todos {
         }
     }
     pub fn add(&self, message: &str) -> Result<(), Box<dyn Error>> {
-        let mut g = self.list.lock().unwrap();
+        let mut list = self.list.lock().unwrap();
         let todo = Todo::new(message.to_string());
-        g.insert(0, todo);
+        list.insert(0, todo);
 
-        write_json("mynd/todo.json", g.clone())?;
+        write_json("mynd/todo.json", list.clone())?;
         Ok(())
     }
 
@@ -65,10 +67,21 @@ impl Todos {
             .0
     }
 
-    pub fn remove(&self, id: TodoID) {
+    pub fn mark_done(&self, id: TodoID) {
         let idx = self.find_index(id.0);
-        self.list.lock().unwrap().remove(idx);
+        let mut list = self.list.lock().unwrap();
+        let todo = list.get_mut(idx);
 
+        if let Some(todo) = todo {
+            todo.done = !todo.done;
+        }
+
+        write_json("mynd/todo.json", list.clone()).ok();
+    }
+
+    pub fn remove_done(&self) {
+        let copy = self.get_all();
+        *self.list.lock().unwrap() = copy.iter().filter(|t| !t.done).cloned().collect();
         write_json("mynd/todo.json", self.get_all()).ok();
     }
 
@@ -118,9 +131,15 @@ fn add(todo: String, todos: tauri::State<'_, Todos>) -> Result<Vec<Todo>, String
 }
 
 #[tauri::command]
-fn remove(id: String, state: tauri::State<'_, Todos>) -> Vec<Todo> {
-    state.remove(TodoID(id));
-    state.get_all()
+fn remove(id: String, todos: tauri::State<'_, Todos>) -> Vec<Todo> {
+    todos.mark_done(TodoID(id));
+    todos.get_all()
+}
+
+#[tauri::command]
+fn remove_done(todos: tauri::State<'_, Todos>) -> Vec<Todo> {
+    todos.remove_done();
+    todos.get_all()
 }
 
 #[tauri::command]
@@ -139,7 +158,12 @@ fn main() {
     tauri::Builder::default()
         .manage(Todos::new())
         .invoke_handler(tauri::generate_handler![
-            load, add, remove, move_up, move_down
+            load,
+            add,
+            remove,
+            move_up,
+            move_down,
+            remove_done
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
