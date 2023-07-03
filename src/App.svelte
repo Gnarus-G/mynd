@@ -1,4 +1,5 @@
 <script lang="ts">
+  import autoAnimate from "@formkit/auto-animate";
   import { invoke } from "@tauri-apps/api/tauri";
   import { onMount } from "svelte";
 
@@ -65,7 +66,7 @@
     >
   </form>
 
-  <ul class="overflow-y-auto container px-5">
+  <ul class="overflow-y-auto container px-5" use:autoAnimate>
     {#each todos as todo, idx (todo.id)}
       <article
         class="grid grid-cols-[max-content_auto_min-content] gap-5 my-2 items-start"

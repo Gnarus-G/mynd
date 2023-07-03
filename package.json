@@ -11,6 +11,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@formkit/auto-animate": "^0.7.0",
     "@tauri-apps/api": "^1.4.0"
   },
   "devDependencies": {
