@@ -33,8 +33,10 @@ struct Todos {
 
 impl Todos {
     pub fn new() -> Self {
+        let list = read_json("mynd/todo.json").unwrap_or_default();
+
         Todos {
-            list: Mutex::new(read_json("todoss/all.json").expect("failed to read all todos")),
+            list: Mutex::new(list),
         }
     }
     pub fn add(&self, message: &str) -> Result<(), Box<dyn Error>> {
@@ -42,7 +44,7 @@ impl Todos {
         let todo = Todo::new(message.to_string());
         g.insert(0, todo);
 
-        write_json("todoss/all.json", g.clone())?;
+        write_json("mynd/todo.json", g.clone())?;
         Ok(())
     }
 
@@ -61,7 +63,7 @@ impl Todos {
         let idx = self.find_index(id.0);
         self.list.lock().unwrap().remove(idx);
 
-        write_json("todoss/all.json", self.get_all()).ok();
+        write_json("mynd/todo.json", self.get_all()).ok();
     }
 
     pub fn move_up(&self, id: String) {
@@ -74,7 +76,7 @@ impl Todos {
             self.list.lock().unwrap()[idx] = temp;
             self.list.lock().unwrap()[idx - 1] = curr;
 
-            write_json("todoss/all.json", self.get_all()).ok();
+            write_json("mynd/todo.json", self.get_all()).ok();
         }
     }
 
@@ -88,7 +90,7 @@ impl Todos {
             self.list.lock().unwrap()[idx] = temp;
             self.list.lock().unwrap()[idx + 1] = curr;
 
-            write_json("todoss/all.json", self.get_all()).ok();
+            write_json("mynd/todo.json", self.get_all()).ok();
         }
     }
 
