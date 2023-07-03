@@ -35,8 +35,11 @@
   }
 </script>
 
-<main class="container">
+<main
+  class="h-screen overflow-y-auto bg-gray-800 text-gray-300 [&_input]:bg-gray-700 flex flex-col items-center justify-center gap-10"
+>
   <form
+    class="sticky top-4"
     on:submit|preventDefault={(e) => {
       const el = e.currentTarget.elements.namedItem("todo");
       // @ts-ignore
@@ -45,23 +48,38 @@
       el.value = "";
     }}
   >
-    <input name="todo" />
-    <button type="submit">[+]></button>
+    <input class="rounded px-1" name="todo" />
+    <button
+      class="rounded-tr-lg rounded bg-green-500 hover:bg-green-600 transition active:scale-90 px-1"
+      type="submit">&#x1F4BE;</button
+    >
   </form>
 
-  {#each todos as todo, idx (todo.id)}
-    <article style="display: flex; align-items: center; gap: 10px;">
-      <button on:click={() => removeTodo(todo.id)}>&times;</button>
-      <p>{idx}</p>
-      <p>{todo.message}</p>
-      <div>
-        {#if idx > 0}
-          <button on:click={() => moveUp(todo.id)}>&#9650;</button>
-        {/if}
-        {#if idx < todos.length - 1}
-          <button on:click={() => moveDown(todo.id)}>&#9660;</button>
-        {/if}
-      </div>
-    </article>
-  {/each}
+  <ul class="overflow-y-auto container px-5">
+    {#each todos as todo, idx (todo.id)}
+      <article
+        class="grid grid-cols-[max-content_auto_min-content] gap-5 my-2 items-start"
+      >
+        <button
+          class="rounded bg-red-700 hover:bg-red-800 transition active:scale-90 px-2"
+          on:click={() => removeTodo(todo.id)}>&times;</button
+        >
+        <p class="font-semibold hover:text-white break-words">{todo.message}</p>
+        <div class="flex gap-2 w-[70px] border-solid border-1 border-white">
+          {#if idx > 0}
+            <button
+              class="rounded bg-gray-500 hover:bg-gray-600 transition active:scale-90 px-2 mr-auto"
+              on:click={() => moveUp(todo.id)}>&#9650;</button
+            >
+          {/if}
+          {#if idx < todos.length - 1}
+            <button
+              class="rounded bg-gray-500 hover:bg-gray-600 transition active:scale-90 px-2 ml-auto"
+              on:click={() => moveDown(todo.id)}>&#9660;</button
+            >
+          {/if}
+        </div>
+      </article>
+    {/each}
+  </ul>
 </main>
