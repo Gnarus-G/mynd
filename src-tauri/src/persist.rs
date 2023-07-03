@@ -2,10 +2,15 @@ use std::{
     error::Error,
     fs::{File, OpenOptions},
     io::{BufReader, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use serde::{de::DeserializeOwned, Serialize};
+
+pub fn path(name: &str) -> PathBuf {
+    let p = &std::env::var("HOME").expect("failed to read $HOME var");
+    Path::new(p).join(name)
+}
 
 pub fn read_json<Item: DeserializeOwned + Serialize>(
     filename: &str,

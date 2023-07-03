@@ -1,10 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{error::Error, sync::Mutex};
+use std::{error::Error, fs, path::Path, sync::Mutex};
 
 use mynd::{
-    persist::{read_json, write_json},
+    persist::{path, read_json, write_json},
     TodoID, TodoTime,
 };
 use serde::{Deserialize, Serialize};
@@ -33,6 +33,12 @@ struct Todos {
 
 impl Todos {
     pub fn new() -> Self {
+        let dir = path("mynd");
+
+        if !dir.is_dir() {
+            fs::create_dir(dir).expect("failed to create a 'mynd' directory");
+        }
+
         let list = read_json("mynd/todo.json").unwrap_or_default();
 
         Todos {
