@@ -16,6 +16,7 @@
   }
 
   async function addTodo(item: string) {
+    if (!item) return;
     todos = await invoke("add", {
       todo: item,
     });
