@@ -15,6 +15,18 @@ impl Default for TodoID {
     }
 }
 
+impl From<String> for TodoID {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for TodoID {
+    fn from(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone)]
 pub struct TodoTime(chrono::DateTime<chrono::Utc>);
 
@@ -33,9 +45,9 @@ impl TodoTime {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Todo {
     id: TodoID,
-    message: String,
+    pub message: String,
     created_at: TodoTime,
-    done: bool,
+    pub done: bool,
 }
 
 impl Todo {
