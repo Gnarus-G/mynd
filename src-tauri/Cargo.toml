@@ -13,6 +13,7 @@ edition = "2021"
 tauri-build = { version = "1.4", features = [] }
 
 [dependencies]
+todo = { path = "todo" }
 tauri = { version = "1.4", features = ["shell-open"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 cuid2 = "0.1.0"
