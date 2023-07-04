@@ -31,16 +31,16 @@ enum Command {
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Cli::parse();
 
-    let tp = Todos::new();
+    let todos = Todos::new();
 
     match args.command {
         Some(c) => match c {
             Command::Done { ids } => {
                 for id in ids {
-                    tp.mark_done(id.into())
+                    todos.mark_done(id.into())
                 }
             }
-            Command::Ls {} => tp
+            Command::Ls {} => todos
                 .get_all()
                 .into_iter()
                 .filter(|t| !t.done)
@@ -49,16 +49,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                     println!("{}\n", m.yellow());
                 }),
             Command::Dump {} => {
-                let todos = tp.get_all();
+                let todos = todos.get_all();
                 println!("{}", serde_json::to_string(&todos)?);
             }
         },
         None => match args.message {
             Some(message) => {
-                tp.add(&message)?;
+                todos.add(&message)?;
             }
             None => {
-                tp.get_all()
+                todos
+                    .get_all()
                     .into_iter()
                     .map(|t| {
                         if t.done {
