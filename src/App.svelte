@@ -56,12 +56,12 @@
   >
     <button
       type="button"
-      class="rounded bg-pink-700 hover:bg-pink-800 transition active:scale-90 px-1"
+      class="rounded bg-pink-800 hover:bg-pink-900 transition active:scale-90 px-1 shadow-md shadow-slate-800 hover:shadow-sm"
       on:click={cleanTodos}>&#x1F5D1;</button
     >
     <input class="rounded px-1" name="todo" />
     <button
-      class="rounded-tr-lg rounded bg-green-500 hover:bg-green-600 transition active:scale-90 px-1"
+      class="rounded-tr-lg rounded bg-slate-400 hover:bg-slate-500 transition active:scale-90 px-1 shadow-md shadow-slate-800 hover:shadow-sm"
       type="submit">&#x1F4BE;</button
     >
   </form>
