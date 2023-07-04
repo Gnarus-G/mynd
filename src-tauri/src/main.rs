@@ -5,8 +5,9 @@ use todo::{Todo, TodoID, Todos};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
-fn load(state: tauri::State<'_, Todos>) -> Vec<Todo> {
-    state.get_all()
+fn load(todos: tauri::State<'_, Todos>) -> Vec<Todo> {
+    todos.load();
+    todos.get_all()
 }
 
 #[tauri::command]

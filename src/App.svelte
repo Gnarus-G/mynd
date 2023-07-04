@@ -41,6 +41,8 @@
   }
 </script>
 
+<svelte:window on:focus={load} />
+
 <main
   class="h-screen overflow-y-auto bg-gray-800 text-gray-300 [&_input]:bg-gray-700 flex flex-col items-center justify-center gap-10"
 >

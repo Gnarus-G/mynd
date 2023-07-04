@@ -68,17 +68,11 @@ pub struct Todos {
 
 impl Todos {
     pub fn new() -> Self {
-        let dir = path("mynd");
-
-        if !dir.is_dir() {
-            fs::create_dir(dir).expect("failed to create a 'mynd' directory");
-        }
-
-        let list = read_json("mynd/todo.json").unwrap_or_default();
-
-        Todos {
-            list: Mutex::new(list),
-        }
+        let t = Todos {
+            list: Mutex::new(vec![]),
+        };
+        t.load();
+        t
     }
     pub fn add(&self, message: &str) -> Result<(), Box<dyn Error>> {
         let mut list = self.list.lock().unwrap();
@@ -144,6 +138,18 @@ impl Todos {
 
             write_json("mynd/todo.json", self.get_all()).ok();
         }
+    }
+
+    pub fn load(&self) {
+        let dir = path("mynd");
+
+        if !dir.is_dir() {
+            fs::create_dir(dir).expect("failed to create a 'mynd' directory");
+        }
+
+        let list = read_json("mynd/todo.json").unwrap_or_default();
+
+        *self.list.lock().unwrap() = list;
     }
 
     pub fn get_all(&self) -> Vec<Todo> {
