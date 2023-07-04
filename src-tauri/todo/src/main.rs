@@ -25,7 +25,11 @@ enum Command {
     Ls {},
 
     /// Dump all todos as json.
-    Dump {},
+    Dump {
+        /// Only dump undone todo items
+        #[arg(short = 't')]
+        todo: bool,
+    },
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -48,8 +52,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .for_each(|m| {
                     println!("{}\n", m.yellow());
                 }),
-            Command::Dump {} => {
-                let todos = todos.get_all();
+            Command::Dump { todo } => {
+                let todos: Vec<_> = todos
+                    .get_all()
+                    .into_iter()
+                    .filter(|t| !todo || !t.done)
+                    .collect();
+
                 println!("{}", serde_json::to_string(&todos)?);
             }
         },
