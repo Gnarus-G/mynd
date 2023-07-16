@@ -61,9 +61,14 @@ jobs:
             fi
 
             strip $BIN_PATH;
-            tar -caf $ARCHIVE $BIN_PATH README.md LICENSE
 
-            mv $ARCHIVE $OUTPUT_DIR
+            TEMP_ARTIFACTS_FOLDER=_tmp-$ARCHIVE-dir;
+            mkdir $TEMP_ARTIFACTS_FOLDER
+            cp -r $BIN_PATH README.md LICENSE $TEMP_ARTIFACTS_FOLDER
+            cd $TEMP_ARTIFACTS_FOLDER
+            tar -caf $ARCHIVE *
+
+            mv $ARCHIVE ../$OUTPUT_DIR
           done
         env:
           TARGET: ${{ matrix.target }}
