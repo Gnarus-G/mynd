@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    name: Release ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-pc-windows-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Install latest rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-pc-windows-gnu
+          toolchain: stable
+
+      - name: Install windows dependencies
+        if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-pc-windows-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install gcc-mingw-w64-x86-64 gcc-mingw-w64-i686
+
+      - name: Compile
+        id: compile
+        run: |
+          set -x
+
+          cargo build --all --release --target=${TARGET}
+
+          OUTPUT_DIR="built/output"
+          mkdir -p "$OUTPUT_DIR"
+          echo "BUILT_ARCHIVES=$OUTPUT_DIR" >> $GITHUB_OUTPUT
+
+
+          BINARIES=$(cargo read-manifest | jq -r ".targets[] | select(.kind[] | contains(\"bin\")) | .name") 
+
+          for BIN in $BINARIES; do
+
+            ARCHIVE=$BIN\_${TARGET}.tar.gz
+            BIN_PATH=target/${TARGET}/release/$BIN
+
+            if [ ${TARGET} = 'x86_64-pc-windows-gnu' ] 
+            then
+              BIN_PATH=$BIN_PATH.exe
+            fi
+
+            strip $BIN_PATH;
+            tar -caf $ARCHIVE $BIN_PATH README.md LICENSE
+
+            mv $ARCHIVE $OUTPUT_DIR
+          done
+        env:
+          TARGET: ${{ matrix.target }}
+
+      - name: Name Release
+        run: echo "RELEASE_NAME=${GITHUB_REPOSITORY#*/} ${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          generate_release_notes: true
+          name: ${{ env.RELEASE_NAME }}
+          files: |
+            ${{ steps.compile.outputs.BUILT_ARCHIVES }}/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - run: cargo publish --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
