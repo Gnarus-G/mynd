@@ -85,7 +85,7 @@ jobs:
             ${{ steps.compile.outputs.BUILT_ARCHIVES }}/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  publish:
+  publish-crate:
     name: Publish to crates.io
     runs-on: ubuntu-latest
     steps:
