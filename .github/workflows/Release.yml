@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    name: Release ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Install latest rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          target: x86_64-apple-darwin
+          toolchain: stable
+
+      - name: Compile
+        id: compile
+        run: |
+          set -x
+
+          OUTPUT_DIR="built/output"
+          mkdir -p "$OUTPUT_DIR"
+          echo "BUILT_ARCHIVES=$OUTPUT_DIR" >> $GITHUB_OUTPUT
+
+          cd src-tauri
+          OUTPUT_DIR="../$OUTPUT_DIR"
+
+          cargo build --all --release --target=${TARGET}
+
+          BINARIES=$(cargo read-manifest | jq -r ".targets[] | select(.kind[] | contains(\"bin\")) | .name") 
+
+          for BIN in $BINARIES; do
+
+            ARCHIVE=$BIN\_${TARGET}.tar.gz
+            BIN_PATH=target/${TARGET}/release/$BIN
+
+            if [ ${TARGET} = 'x86_64-pc-windows-gnu' ] 
+            then
+              BIN_PATH=$BIN_PATH.exe
+            fi
+
+            strip $BIN_PATH;
+            
+            ARTIFACTS_FOLDER="${GITHUB_REPOSITORY#*/}_${GITHUB_REF_NAME}"
+            mkdir $ARTIFACTS_FOLDER
+            cp -r $BIN_PATH README.md LICENSE $ARTIFACTS_FOLDER
+            tar -caf $ARCHIVE $ARTIFACTS_FOLDER/*
+
+            mv $ARCHIVE $OUTPUT_DIR
+          done
+        env:
+          TARGET: ${{ matrix.target }}
+
+      - name: Name Release
+        run: echo "RELEASE_NAME=${GITHUB_REPOSITORY#*/} ${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          generate_release_notes: true
+          name: ${{ env.RELEASE_NAME }}
+          files: |
+            ${{ steps.compile.outputs.BUILT_ARCHIVES }}/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
