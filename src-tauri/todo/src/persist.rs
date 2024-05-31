@@ -44,6 +44,7 @@ fn open_file(path: &Path) -> Result<File, Box<dyn Error>> {
         .write(true)
         .read(true)
         .create(true)
+        .truncate(false)
         .open(path)?;
 
     Ok(file)

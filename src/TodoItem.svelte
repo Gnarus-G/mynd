@@ -12,10 +12,21 @@
   export let onCheck: (id: string) => void;
   export let onMoveUp: (id: string) => void;
   export let onMoveDown: (id: string) => void;
+
+  let overDropzone = false;
+
+  export let onDropBelow: (draggedTodoId: string, belowTodoId: string) => void;
 </script>
 
 <article
-  class="grid grid-cols-[max-content_auto_min-content] gap-5 my-2 items-center"
+  class="grid grid-cols-[max-content_auto_min-content] gap-5 mt-2 items-center"
+  draggable="true"
+  on:dragstart={(ev) => {
+    console.log("[TodoItem] started drag on todo id:", todo.id);
+    ev.dataTransfer.dropEffect = "move";
+    ev.dataTransfer.setData("application/todo-id", todo.id);
+    ev.dataTransfer.setData("text/plain", todo.message);
+  }}
 >
   <div id="done-toggle" class="inline-flex items-center">
     <label
@@ -72,3 +83,45 @@
     {/if}
   </div>
 </article>
+<div
+  class="dropzone ml-14 bg-slate-700 rounded-lg"
+  aria-label="drop zone below a todo item"
+  data-dropready={overDropzone}
+  on:dragover={(ev) => {
+    overDropzone = true;
+    ev.preventDefault(); // necessary to enable drop handler
+    console.log("[TodoItem] dragged over dropzone of todo id:", todo.id);
+    ev.dataTransfer.dropEffect = "move";
+  }}
+  on:dragleave={(_) => {
+    overDropzone = false;
+    console.log("[TodoItem] leaving dropzone of todo id:", todo.id);
+  }}
+  on:drop={(ev) => {
+    overDropzone = false;
+    ev.preventDefault();
+    const fromId = ev.dataTransfer.getData("application/todo-id");
+    const message = ev.dataTransfer.getData("text/plain");
+    console.log("[TodoItem] dropped below todo id:", todo.id, {
+      fromId,
+      message,
+    });
+
+    onDropBelow(fromId, todo.id);
+  }}
+/>
+
+<style>
+  .dropzone {
+    transition:
+      transform 250ms 125ms ease-in-out,
+      opacity 500ms ease-out;
+    opacity: 0;
+    height: 0.5rem;
+  }
+
+  .dropzone[data-dropready="true"] {
+    opacity: 1;
+    transform: scaleY(2);
+  }
+</style>

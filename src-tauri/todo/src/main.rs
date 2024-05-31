@@ -35,7 +35,7 @@ enum Command {
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Cli::parse();
 
-    let todos = Todos::new();
+    let todos = Todos::load_up_with_persistor();
 
     match args.command {
         Some(c) => match c {

@@ -40,6 +40,13 @@
   async function moveDown(id: string) {
     todos = await invoke("move_down", { id });
   }
+
+  function moveBelow(sourceTodoId: string, targetTodoId: string) {
+    invoke("move_below", {
+      id: sourceTodoId,
+      targetId: targetTodoId,
+    }).then((tds) => (todos = tds));
+  }
 </script>
 
 <svelte:window on:focus={load} />
@@ -78,6 +85,7 @@
         onMoveDown={moveDown}
         disableMoveUp={idx === 0}
         disableMoveDown={idx === todos.length - 1}
+        onDropBelow={moveBelow}
       />
     {/each}
   </ul>

@@ -6,7 +6,7 @@ use todo::{Todo, TodoID, Todos};
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn load(todos: tauri::State<'_, Todos>) -> Vec<Todo> {
-    todos.load();
+    todos.reload();
     todos.get_all()
 }
 
@@ -40,16 +40,23 @@ fn move_down(id: String, todos: tauri::State<'_, Todos>) -> Vec<Todo> {
     todos.get_all()
 }
 
+#[tauri::command]
+fn move_below(id: String, target_id: String, todos: tauri::State<'_, Todos>) -> Vec<Todo> {
+    todos.move_below(id, target_id);
+    todos.get_all()
+}
+
 fn main() {
     tauri::Builder::default()
-        .manage(Todos::new())
+        .manage(Todos::load_up_with_persistor())
         .invoke_handler(tauri::generate_handler![
             load,
             add,
             remove,
             move_up,
             move_down,
-            remove_done
+            remove_done,
+            move_below
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
