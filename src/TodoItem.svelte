@@ -84,7 +84,7 @@
   </div>
 </article>
 <div
-  class="dropzone ml-14 bg-slate-700 rounded-lg"
+  class="dropzone ml-14 bg-slate-700 rounded-sm"
   aria-label="drop zone below a todo item"
   data-dropready={overDropzone}
   on:dragover={(ev) => {
@@ -114,10 +114,11 @@
 <style>
   .dropzone {
     transition:
-      transform 250ms 125ms ease-in-out,
-      opacity 500ms ease-out;
+      transform 125ms ease-in-out,
+      opacity 125ms ease-out;
     opacity: 0;
-    height: 0.5rem;
+    height: 1rem;
+    transform: scaleY(0.5);
   }
 
   .dropzone[data-dropready="true"] {

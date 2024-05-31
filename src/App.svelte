@@ -41,11 +41,11 @@
     todos = await invoke("move_down", { id });
   }
 
-  function moveBelow(sourceTodoId: string, targetTodoId: string) {
-    invoke("move_below", {
+  async function moveBelow(sourceTodoId: string, targetTodoId: string) {
+    todos = await invoke("move_below", {
       id: sourceTodoId,
       targetId: targetTodoId,
-    }).then((tds) => (todos = tds));
+    });
   }
 </script>
 
