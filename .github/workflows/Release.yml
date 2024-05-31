@@ -15,18 +15,41 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-20.4
             target: x86_64-unknown-linux-gnu
           - os: macos-latest
             target: x86_64-apple-darwin
     steps:
       - uses: actions/checkout@master
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Install latest rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           target: x86_64-apple-darwin
           toolchain: stable
+      - if: matrix.os == 'ubuntu-20.4'
+        run: sudo apt-get install libgtk-3-dev
 
       - name: Compile
         id: compile
@@ -38,19 +61,17 @@ jobs:
           mkdir -p "$OUTPUT_DIR"
           echo "BUILT_ARCHIVES=$OUTPUT_DIR" >> $GITHUB_OUTPUT
 
-          cargo build --manifest-path=$WORKDIR/Cargo.toml --all --release --target=${TARGET}
+          set -xe;
 
-          BINARIES=$(cargo read-manifest --manifest-path=$WORKDIR/Cargo.toml | jq -r ".targets[] | select(.kind[] | contains(\"bin\")) | .name") 
+          pnpm tauri build --verbose
+          cargo build --manifest-path=$WORKDIR/Cargo.toml --release -p todo;
+
+          BINARIES=(mynd todo) 
 
           for BIN in $BINARIES; do
 
             ARCHIVE=$BIN\_${TARGET}.tar.gz
-            BIN_PATH=$WORKDIR/target/${TARGET}/release/$BIN
-
-            if [ ${TARGET} = 'x86_64-pc-windows-gnu' ] 
-            then
-              BIN_PATH=$BIN_PATH.exe
-            fi
+            BIN_PATH=$WORKDIR/target/release/$BIN
 
             strip $BIN_PATH;
             
