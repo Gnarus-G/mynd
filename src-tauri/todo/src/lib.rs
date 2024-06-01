@@ -1,17 +1,15 @@
-use std::{error::Error, fs, sync::Mutex};
+use std::{error::Error, sync::Mutex};
 
-use cuid2::cuid;
-use persist::{path, read_json, write_json};
+use persist::{jsonfile::TodosJsonDB, TodosDatabase};
 use serde::{Deserialize, Serialize};
 
 pub mod persist;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone)]
 pub struct TodoID(pub String);
-
-impl Default for TodoID {
-    fn default() -> Self {
-        Self(cuid())
+impl TodoID {
+    fn hash_message(message: &str) -> TodoID {
+        TodoID(sha256::digest(message))
     }
 }
 
@@ -53,7 +51,7 @@ pub struct Todo {
 impl Todo {
     pub fn new(message: String) -> Self {
         Self {
-            id: Default::default(),
+            id: TodoID::hash_message(&message),
             message,
             created_at: Default::default(),
             done: false,
@@ -62,28 +60,24 @@ impl Todo {
 }
 
 #[derive(Debug)]
-pub struct Todos {
+pub struct Todos<DB: TodosDatabase> {
     list: Mutex<Vec<Todo>>,
-    updater: fn(&Self),
+    db: DB,
 }
 
-impl Todos {
-    pub fn new(updater: Option<fn(&Self)>) -> Self {
+impl Todos<TodosJsonDB> {
+    pub fn load_up_with_persistor() -> Todos<TodosJsonDB> {
+        let db = TodosJsonDB::default();
         Todos {
-            list: Mutex::new(vec![]),
-            updater: updater.unwrap_or(|_| {}),
+            list: Mutex::new(db.get_all_todos()),
+            db,
         }
     }
+}
 
-    pub fn load_up_with_persistor() -> Self {
-        Todos {
-            list: Mutex::new(load_todos()),
-            updater: persist_todos,
-        }
-    }
-
+impl<DB: TodosDatabase> Todos<DB> {
     pub fn reload(&self) {
-        *self.list.lock().unwrap() = load_todos();
+        *self.list.lock().unwrap() = self.db.get_all_todos();
     }
 
     pub fn add(&self, message: &str) -> Result<Todo, Box<dyn Error>> {
@@ -203,23 +197,8 @@ impl Todos {
     }
 
     fn update(&self) {
-        (self.updater)(self)
+        self.db.set_all_todos(self.get_all())
     }
-}
-
-fn persist_todos(todos: &Todos) {
-    write_json("mynd/todo.json", todos.get_all()).ok();
-}
-
-fn load_todos() -> Vec<Todo> {
-    let dir = path("mynd");
-
-    if !dir.is_dir() {
-        fs::create_dir(dir).expect("failed to create a 'mynd' directory");
-    }
-
-    let list = read_json("mynd/todo.json").unwrap_or_default();
-    return list;
 }
 
 #[cfg(test)]
@@ -227,9 +206,28 @@ mod tests {
 
     use super::*;
 
+    pub struct NoopDB;
+
+    impl TodosDatabase for NoopDB {
+        fn get_all_todos(&self) -> Vec<Todo> {
+            return vec![];
+        }
+
+        fn set_all_todos(&self, _todos: Vec<Todo>) {}
+    }
+
+    impl Todos<NoopDB> {
+        pub fn new() -> Todos<NoopDB> {
+            Todos {
+                list: Mutex::new(vec![]),
+                db: NoopDB,
+            }
+        }
+    }
+
     #[test]
     fn move_below_from_top_to_bottom() {
-        let todos = Todos::new(None);
+        let todos = Todos::new();
 
         todos.add("1").unwrap();
         todos.add("2").unwrap();
@@ -260,7 +258,7 @@ mod tests {
 
     #[test]
     fn move_below_from_bottom_to_top() {
-        let todos = Todos::new(None);
+        let todos = Todos::new();
 
         todos.add("1").unwrap();
         let id = todos.add("2").unwrap().id.0;
@@ -291,7 +289,7 @@ mod tests {
 
     #[test]
     fn move_below_to_bottom() {
-        let todos = Todos::new(None);
+        let todos = Todos::new();
 
         let target = todos.add("1").unwrap().id.0;
         todos.add("2").unwrap();
