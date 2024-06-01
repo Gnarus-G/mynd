@@ -8,7 +8,8 @@ Yet another todo app, because I'm opinionated about the dumbest things.
 - [x] Simple GUI
 - [x] CLI for efficiency
 - [x] Local Persistence Option
-- [ ] Soft Delete Done Items
+- [x] Soft Delete Done Items
+- [ ] Permanent Deletion
 - [ ] Remote Persistence Option
 
 ## Install
