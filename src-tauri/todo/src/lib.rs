@@ -1,5 +1,6 @@
-use std::{error::Error, sync::Mutex};
+use std::sync::{Mutex, MutexGuard};
 
+use anyhow::{anyhow, Context};
 use persist::{jsonfile::TodosJsonDB, TodosDatabase};
 use serde::{Deserialize, Serialize};
 
@@ -76,128 +77,151 @@ impl Todos<TodosJsonDB> {
 }
 
 impl<DB: TodosDatabase> Todos<DB> {
-    pub fn reload(&self) {
-        *self.list.lock().unwrap() = self.db.get_all_todos();
+    pub fn reload(&self) -> anyhow::Result<()> {
+        *(self.inner_list()?) = self.db.get_all_todos();
+        Ok(())
     }
 
-    pub fn add(&self, message: &str) -> Result<Todo, Box<dyn Error>> {
-        let mut list = self.list.lock().unwrap();
+    fn inner_list(&self) -> anyhow::Result<MutexGuard<Vec<Todo>>> {
+        self.list
+            .try_lock()
+            .map_err(|err| anyhow!("{err}").context("failed to acquire lock on todos list"))
+    }
+
+    pub fn add(&self, message: &str) -> anyhow::Result<Todo> {
         let todo = Todo::new(message.to_string());
-        list.insert(0, todo);
 
-        self.update();
+        self.inner_list()?.insert(0, todo.clone());
 
-        Ok(list[0].clone())
+        self.update()?;
+
+        Ok(todo)
     }
 
     fn size(&self) -> usize {
-        self.list.lock().expect("mutex is in a bad state").len()
+        self.inner_list()
+            .expect("failed to get inner todo list to check size")
+            .len()
     }
 
-    fn find_index(&self, id: String) -> usize {
-        self.list
-            .lock()
-            .unwrap()
+    fn find_index(&self, id: String) -> anyhow::Result<usize> {
+        let idx = self
+            .inner_list()?
             .iter()
             .enumerate()
             .find(|(_, t)| t.id == TodoID(id.clone()))
-            .unwrap()
-            .0
+            .context("didn't find a todo by the id provided")?
+            .0;
+
+        Ok(idx)
     }
 
-    pub fn mark_done(&self, id: TodoID) {
-        let idx = self.find_index(id.0);
-        let mut list = self.list.lock().unwrap();
+    pub fn mark_done(&self, id: TodoID) -> anyhow::Result<()> {
+        let idx = self.find_index(id.0)?;
+        let mut list = self.inner_list()?;
         let todo = list.get_mut(idx);
 
         if let Some(todo) = todo {
             todo.done = !todo.done;
         }
 
-        self.update();
+        self.update()?;
+
+        Ok(())
     }
 
-    pub fn remove_done(&self) {
-        let copy = self.get_all();
-        *self.list.lock().unwrap() = copy.iter().filter(|t| !t.done).cloned().collect();
-        self.update();
+    pub fn remove_done(&self) -> anyhow::Result<()> {
+        let copy = self.get_all()?;
+        *(self.inner_list()?) = copy.iter().filter(|t| !t.done).cloned().collect();
+        self.update()?;
+
+        Ok(())
     }
 
-    pub fn move_up(&self, id: String) {
-        let idx = self.find_index(id);
+    pub fn move_up(&self, id: String) -> anyhow::Result<()> {
+        let idx = self.find_index(id)?;
 
-        if idx < self.list.lock().unwrap().len() {
-            let curr = self.list.lock().unwrap()[idx].clone();
-            let temp = self.list.lock().unwrap()[idx - 1].clone();
+        if idx < self.inner_list()?.len() {
+            let curr = self.inner_list()?[idx].clone();
+            let temp = self.inner_list()?[idx - 1].clone();
 
-            self.list.lock().unwrap()[idx] = temp;
-            self.list.lock().unwrap()[idx - 1] = curr;
+            self.inner_list()?[idx] = temp;
+            self.inner_list()?[idx - 1] = curr;
 
-            self.update();
+            self.update()?;
         }
+
+        Ok(())
     }
 
-    pub fn move_down(&self, id: String) {
-        let idx = self.find_index(id);
+    pub fn move_down(&self, id: String) -> anyhow::Result<()> {
+        let idx = self.find_index(id)?;
 
-        if idx < self.list.lock().unwrap().len() {
-            let curr = self.list.lock().unwrap()[idx].clone();
-            let temp = self.list.lock().unwrap()[idx + 1].clone();
+        if idx < self.inner_list()?.len() {
+            let curr = self.inner_list()?[idx].clone();
+            let temp = self.inner_list()?[idx + 1].clone();
 
-            self.list.lock().unwrap()[idx] = temp;
-            self.list.lock().unwrap()[idx + 1] = curr;
+            self.inner_list()?[idx] = temp;
+            self.inner_list()?[idx + 1] = curr;
 
-            self.update();
+            self.update()?;
         }
+
+        Ok(())
     }
 
     /// Move a todo item to be directly below another.
-    pub fn move_below(&self, id: String, target_id: String) {
+    pub fn move_below(&self, id: String, target_id: String) -> anyhow::Result<()> {
         // remember here that todos are added to the front of the list
         // so 0..len is from most newest to oldest, top to bottom
         // so i + 1 is below i
 
-        let idx = self.find_index(id);
-        let target_idx = self.find_index(target_id);
+        let idx = self.find_index(id)?;
+        let target_idx = self.find_index(target_id)?;
         let below_target_idx = target_idx + 1;
 
         // wouldn't make a difference if todo is own target or already below target
         if idx == target_idx {
             eprintln!("[INFO] noop: won't move a todo item below itself");
-            return;
+            return Ok(());
         }
 
         if idx == below_target_idx {
             eprintln!("[INFO] noop: todo is already below target");
-            return;
+            return Ok(());
         }
 
         if idx >= self.size() || target_idx >= self.size() {
             eprintln!("[WARN] tried to move todo item below another but one of them doesn't exist");
-            return; // TODO: error, bad input
+            return Ok(()); // TODO: error, bad input
         }
 
-        let source = self.list.lock().unwrap()[idx].clone();
+        let source = self.inner_list()?[idx].clone();
 
         if idx < target_idx {
-            self.list.lock().unwrap().remove(idx);
-            self.list.lock().unwrap().insert(target_idx, source);
+            self.inner_list()?.remove(idx);
+            self.inner_list()?.insert(target_idx, source);
         } else {
-            self.list.lock().unwrap().remove(idx);
-            self.list.lock().unwrap().insert(below_target_idx, source);
+            self.inner_list()?.remove(idx);
+            self.inner_list()?.insert(below_target_idx, source);
         }
 
         eprintln!("[INFO] move a todo item below another");
 
-        self.update();
+        self.update()?;
+
+        Ok(())
     }
 
-    pub fn get_all(&self) -> Vec<Todo> {
-        self.list.lock().unwrap().clone()
+    pub fn get_all(&self) -> anyhow::Result<Vec<Todo>> {
+        let all = self.inner_list()?.clone();
+        Ok(all)
     }
 
-    fn update(&self) {
-        self.db.set_all_todos(self.get_all())
+    fn update(&self) -> anyhow::Result<()> {
+        let all = self.get_all()?;
+        self.db.set_all_todos(all);
+        Ok(())
     }
 }
 
@@ -236,10 +260,11 @@ mod tests {
         let id = todos.add("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target);
+        todos.move_below(id, target).unwrap();
 
         let messages = todos
             .get_all()
+            .unwrap()
             .into_iter()
             .map(|t| t.message)
             .collect::<Vec<_>>();
@@ -267,10 +292,11 @@ mod tests {
         let target = todos.add("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target);
+        todos.move_below(id, target).unwrap();
 
         let messages = todos
             .get_all()
+            .unwrap()
             .into_iter()
             .map(|t| t.message)
             .collect::<Vec<_>>();
@@ -298,10 +324,11 @@ mod tests {
         let id = todos.add("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target);
+        todos.move_below(id, target).unwrap();
 
         let messages = todos
             .get_all()
+            .unwrap()
             .into_iter()
             .map(|t| t.message)
             .collect::<Vec<_>>();

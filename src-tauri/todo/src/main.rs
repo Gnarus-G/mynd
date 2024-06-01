@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use todo::Todos;
@@ -32,7 +30,7 @@ enum Command {
     },
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     let todos = Todos::load_up_with_persistor();
@@ -41,11 +39,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(c) => match c {
             Command::Done { ids } => {
                 for id in ids {
-                    todos.mark_done(id.into())
+                    todos.mark_done(id.into())?
                 }
             }
             Command::Ls {} => todos
-                .get_all()
+                .get_all()?
                 .into_iter()
                 .filter(|t| !t.done)
                 .map(|t| t.message)
@@ -54,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }),
             Command::Dump { todo } => {
                 let todos: Vec<_> = todos
-                    .get_all()
+                    .get_all()?
                     .into_iter()
                     .filter(|t| !todo || !t.done)
                     .collect();
@@ -68,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             None => {
                 todos
-                    .get_all()
+                    .get_all()?
                     .into_iter()
                     .map(|t| {
                         if t.done {

@@ -13,3 +13,4 @@ chrono = { version = "0.4.23", features = ["serde"] }
 cuid2 = "0.1.0"
 colored = "2.0.1"
 sha256 = "1.5.0"
+anyhow = "1.0.86"
