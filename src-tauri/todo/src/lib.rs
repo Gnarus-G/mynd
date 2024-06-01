@@ -118,12 +118,13 @@ impl<DB: TodosDatabase> Todos<DB> {
 
     pub fn mark_done(&self, id: TodoID) -> anyhow::Result<()> {
         let idx = self.find_index(id.0)?;
-        let mut list = self.inner_list()?;
-        let todo = list.get_mut(idx);
 
-        if let Some(todo) = todo {
-            todo.done = !todo.done;
-        }
+        self.inner_list().map(|mut l| {
+            let todo = l.get_mut(idx);
+            if let Some(todo) = todo {
+                todo.done = !todo.done;
+            }
+        })?;
 
         self.update()?;
 
