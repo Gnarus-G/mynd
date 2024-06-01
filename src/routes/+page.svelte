@@ -1,8 +1,8 @@
 <script lang="ts">
   import autoAnimate from "@formkit/auto-animate";
-  import { invoke } from "@tauri-apps/api/tauri";
+  import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
-  import TodoItem from "./TodoItem.svelte";
+  import TodoItem from "../components/TodoItem.svelte";
 
   type Todo = {
     id: string;

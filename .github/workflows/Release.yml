@@ -15,44 +15,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
           - os: macos-latest
             target: x86_64-apple-darwin
     steps:
       - uses: actions/checkout@master
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: 9
-          run_install: false
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install
 
       - name: Install latest rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           target: x86_64-apple-darwin
           toolchain: stable
-      - if: matrix.os == 'ubuntu-20.04'
-        run: sudo apt-get install libgtk-3-dev
 
-      - name: Compile
-        id: compile
+      - name: Tauri dependencies
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libgtk-3-dev
+          libayatana-appindicator3-dev
+          libwebkit2gtk-4.0-dev
+          webkit2gtk-driver
+          xvfb
+
+      - uses: oven-sh/setup-bun@v1
+      - name: Install JS packages
+        run: bun install
+      - name: Tauri Build
+        run: bun tauri build --verbose
+
+      - name: Build Artifacts
+        id: dist
         run: |
           set -x
 
@@ -63,7 +57,6 @@ jobs:
 
           set -xe;
 
-          pnpm tauri build --verbose
           cargo build --manifest-path=$WORKDIR/Cargo.toml --release -p todo;
 
           BINARIES=(mynd todo) 
@@ -95,6 +88,6 @@ jobs:
           generate_release_notes: true
           name: ${{ env.RELEASE_NAME }}
           files: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVES }}/*
+            ${{ steps.dist.outputs.BUILT_ARCHIVES }}/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
