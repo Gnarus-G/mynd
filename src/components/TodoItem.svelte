@@ -23,6 +23,7 @@
   draggable="true"
   on:dragstart={(ev) => {
     console.log("[TodoItem] started drag on todo id:", todo.id);
+    if (!ev.dataTransfer) return;
     ev.dataTransfer.dropEffect = "move";
     ev.dataTransfer.setData("application/todo-id", todo.id);
     ev.dataTransfer.setData("text/plain", todo.message);
@@ -84,6 +85,7 @@
   </div>
 </article>
 <div
+  role="region"
   class="dropzone ml-14 bg-slate-700 rounded-sm"
   aria-label="drop zone below a todo item"
   data-dropready={overDropzone}
@@ -91,6 +93,7 @@
     overDropzone = true;
     ev.preventDefault(); // necessary to enable drop handler
     console.log("[TodoItem] dragged over dropzone of todo id:", todo.id);
+    if (!ev.dataTransfer) return;
     ev.dataTransfer.dropEffect = "move";
   }}
   on:dragleave={(_) => {
@@ -100,6 +103,7 @@
   on:drop={(ev) => {
     overDropzone = false;
     ev.preventDefault();
+    if (!ev.dataTransfer) return;
     const fromId = ev.dataTransfer.getData("application/todo-id");
     const message = ev.dataTransfer.getData("text/plain");
     console.log("[TodoItem] dropped below todo id:", todo.id, {
