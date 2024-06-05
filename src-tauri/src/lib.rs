@@ -1,10 +1,18 @@
+use anyhow::Context;
 use todo::{persist::jsonfile::TodosJsonDB, Todo, TodoID, Todos};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
-fn load(todos: tauri::State<'_, TodosState>) -> Vec<Todo> {
-    todos.reload().expect("failed to relaod todos");
-    todos.get_all().expect("failed to fetch all todos")
+fn load(todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
+    todos
+        .reload()
+        .context("failed to relaod todos")
+        .into_command_result()?;
+
+    todos
+        .get_all()
+        .context("failed to fetch all todos")
+        .into_command_result()
 }
 
 #[tauri::command]
@@ -17,25 +25,39 @@ fn add(todo: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult 
 fn remove(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
         .mark_done(TodoID(id))
-        .expect("failed to remove (mark done) a todo");
+        .context("failed to remove (mark done) a todo")
+        .into_command_result()?;
+
     todos.get_all().into_command_result()
 }
 
 #[tauri::command]
 fn remove_done(todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
-    todos.remove_done().expect("failed to remove done todos");
+    todos
+        .remove_done()
+        .context("failed to remove done todos")
+        .into_command_result()?;
+
     todos.get_all().into_command_result()
 }
 
 #[tauri::command]
 fn move_up(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
-    todos.move_up(id).expect("failed to move a todo up");
+    todos
+        .move_up(id)
+        .context("failed to move a todo up")
+        .into_command_result()?;
+
     todos.get_all().into_command_result()
 }
 
 #[tauri::command]
 fn move_down(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
-    todos.move_down(id).expect("failed to move a todo down");
+    todos
+        .move_down(id)
+        .context("failed to move a todo down")
+        .into_command_result()?;
+
     todos.get_all().into_command_result()
 }
 
@@ -47,7 +69,9 @@ fn move_below(
 ) -> TodosCommandResult {
     todos
         .move_below(id, target_id)
-        .expect("failed to move a todo below another");
+        .context("failed to move a todo below another")
+        .into_command_result()?;
+
     todos.get_all().into_command_result()
 }
 

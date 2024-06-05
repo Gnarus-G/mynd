@@ -1,58 +1,77 @@
 use crate::Todo;
 
 pub trait TodosDatabase {
-    fn get_all_todos(&self) -> Vec<Todo>;
-    fn set_all_todos(&self, todos: Vec<Todo>);
+    fn get_all_todos(&self) -> anyhow::Result<Vec<Todo>>;
+    fn set_all_todos(&self, todos: Vec<Todo>) -> anyhow::Result<()>;
 }
 
 pub mod jsonfile {
     use super::TodosDatabase;
 
     use std::{
-        error::Error,
         fs::{File, OpenOptions},
         io::{BufReader, Write},
         path::{Path, PathBuf},
     };
 
+    use anyhow::Context;
     use serde::{de::DeserializeOwned, Serialize};
 
+    const FILE_NAME: &str = "mynd/todo.json";
+
     pub struct TodosJsonDB {
-        filename: String,
+        filename: Option<String>,
     }
 
     impl Default for TodosJsonDB {
         fn default() -> Self {
-            let dir = path("mynd");
+            let filename = FILE_NAME.to_string();
+            let filename = path("mynd")
+                .and_then(|path| {
+                    if !path.is_dir() {
+                        return std::fs::create_dir(path)
+                            .context("failed to create a 'mynd' directory")
+                            .map(|_| filename);
+                    }
+                    Ok(filename)
+                })
+                .map_err(|err| eprintln!("[ERROR] {err:#}"))
+                .ok();
 
-            if !dir.is_dir() {
-                std::fs::create_dir(dir).expect("failed to create a 'mynd' directory");
-            }
+            Self { filename }
+        }
+    }
 
-            Self {
-                filename: "mynd/todo.json".to_string(),
-            }
+    impl TodosJsonDB {
+        fn get_filename(&self) -> anyhow::Result<&String> {
+            let name = self
+                .filename
+                .as_ref()
+                .context("failed to setup a file for the todos")?;
+
+            return Ok(name);
         }
     }
 
     impl TodosDatabase for TodosJsonDB {
-        fn get_all_todos(&self) -> Vec<crate::Todo> {
-            read_json(&self.filename).unwrap_or_default()
+        fn get_all_todos(&self) -> anyhow::Result<Vec<crate::Todo>> {
+            let json_file_name = self.get_filename()?;
+            read_json(json_file_name)
         }
 
-        fn set_all_todos(&self, todos: Vec<crate::Todo>) {
-            write_json(&self.filename, todos).ok();
+        fn set_all_todos(&self, todos: Vec<crate::Todo>) -> anyhow::Result<()> {
+            let json_file_name = self.get_filename()?;
+            write_json(json_file_name, todos)?;
+            Ok(())
         }
     }
 
-    pub fn path(name: &str) -> PathBuf {
-        let p = &std::env::var("HOME").expect("failed to read $HOME var");
-        Path::new(p).join(name)
+    pub fn path(name: &str) -> anyhow::Result<PathBuf> {
+        let p = &std::env::var("HOME").context("failed to read $HOME var")?;
+        Ok(Path::new(p).join(name))
     }
 
-    pub fn read_json<Item: DeserializeOwned + Serialize>(
-        filename: &str,
-    ) -> Result<Item, Box<dyn Error>> {
+    pub fn read_json<Item: DeserializeOwned + Serialize>(filename: &str) -> anyhow::Result<Item> {
         let p = &std::env::var("HOME")?;
         let file = open_file(&Path::new(p).join(filename))?;
         let reader = BufReader::new(&file);
@@ -63,7 +82,7 @@ pub mod jsonfile {
     pub fn write_json<Item: DeserializeOwned + Serialize>(
         filename: &str,
         item: Item,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> anyhow::Result<()> {
         let json = serde_json::to_string::<Item>(&item)?;
         let p = &std::env::var("HOME")?;
 
@@ -77,7 +96,7 @@ pub mod jsonfile {
         Ok(())
     }
 
-    fn open_file(path: &Path) -> Result<File, Box<dyn Error>> {
+    fn open_file(path: &Path) -> anyhow::Result<File> {
         let file = OpenOptions::new()
             .write(true)
             .read(true)

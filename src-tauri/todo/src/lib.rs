@@ -1,4 +1,7 @@
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    sync::{Mutex, MutexGuard},
+    usize,
+};
 
 use anyhow::{anyhow, Context};
 use persist::{jsonfile::TodosJsonDB, TodosDatabase};
@@ -66,11 +69,20 @@ pub struct Todos<DB: TodosDatabase> {
     db: DB,
 }
 
+impl<DB: TodosDatabase> Todos<DB> {
+    pub fn new(db: DB) -> Self {
+        Self {
+            list: Mutex::new(vec![]),
+            db,
+        }
+    }
+}
+
 impl Todos<TodosJsonDB> {
     pub fn load_up_with_persistor() -> Todos<TodosJsonDB> {
         let db = TodosJsonDB::default();
         Todos {
-            list: Mutex::new(db.get_all_todos()),
+            list: Mutex::new(db.get_all_todos().unwrap_or_default()),
             db,
         }
     }
@@ -78,7 +90,8 @@ impl Todos<TodosJsonDB> {
 
 impl<DB: TodosDatabase> Todos<DB> {
     pub fn reload(&self) -> anyhow::Result<()> {
-        *(self.inner_list()?) = self.db.get_all_todos();
+        let todos = self.db.get_all_todos()?;
+        *(self.inner_list()?) = todos;
         Ok(())
     }
 
@@ -98,10 +111,13 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(todo)
     }
 
-    fn size(&self) -> usize {
-        self.inner_list()
-            .expect("failed to get inner todo list to check size")
-            .len()
+    fn len(&self) -> anyhow::Result<usize> {
+        let size = self
+            .inner_list()
+            .context("failed to get inner todo list to check size")?
+            .len();
+
+        Ok(size)
     }
 
     fn find_index(&self, id: String) -> anyhow::Result<usize> {
@@ -192,7 +208,8 @@ impl<DB: TodosDatabase> Todos<DB> {
             return Ok(());
         }
 
-        if idx >= self.size() || target_idx >= self.size() {
+        let size = self.len()?;
+        if idx >= size || target_idx >= size {
             eprintln!("[WARN] tried to move todo item below another but one of them doesn't exist");
             return Ok(()); // TODO: error, bad input
         }
@@ -221,8 +238,30 @@ impl<DB: TodosDatabase> Todos<DB> {
 
     fn update(&self) -> anyhow::Result<()> {
         let all = self.get_all()?;
-        self.db.set_all_todos(all);
+        self.db.set_all_todos(all)?;
         Ok(())
+    }
+}
+
+pub mod inmem {
+    use super::*;
+
+    pub struct NoopDB;
+
+    impl TodosDatabase for NoopDB {
+        fn get_all_todos(&self) -> anyhow::Result<Vec<Todo>> {
+            return Ok(vec![]);
+        }
+
+        fn set_all_todos(&self, _todos: Vec<Todo>) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl Todos<NoopDB> {
+        pub fn new_inmemory() -> Todos<NoopDB> {
+            Todos::new(NoopDB)
+        }
     }
 }
 
@@ -231,28 +270,9 @@ mod tests {
 
     use super::*;
 
-    pub struct NoopDB;
-
-    impl TodosDatabase for NoopDB {
-        fn get_all_todos(&self) -> Vec<Todo> {
-            return vec![];
-        }
-
-        fn set_all_todos(&self, _todos: Vec<Todo>) {}
-    }
-
-    impl Todos<NoopDB> {
-        pub fn new() -> Todos<NoopDB> {
-            Todos {
-                list: Mutex::new(vec![]),
-                db: NoopDB,
-            }
-        }
-    }
-
     #[test]
     fn move_below_from_top_to_bottom() {
-        let todos = Todos::new();
+        let todos = Todos::new_inmemory();
 
         todos.add("1").unwrap();
         todos.add("2").unwrap();
@@ -284,7 +304,7 @@ mod tests {
 
     #[test]
     fn move_below_from_bottom_to_top() {
-        let todos = Todos::new();
+        let todos = Todos::new_inmemory();
 
         todos.add("1").unwrap();
         let id = todos.add("2").unwrap().id.0;
@@ -316,7 +336,7 @@ mod tests {
 
     #[test]
     fn move_below_to_bottom() {
-        let todos = Todos::new();
+        let todos = Todos::new_inmemory();
 
         let target = todos.add("1").unwrap().id.0;
         todos.add("2").unwrap();
