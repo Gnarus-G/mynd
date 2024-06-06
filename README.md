@@ -55,3 +55,7 @@ Options:
   -h, --help     Print help
   -V, --version  Print version
 ```
+
+## Dev References
+
+https://github.com/tauri-apps/tauri-docs/blob/8cdc0505ffb9e78be768a0216bd91980306206a5/docs/guides/distribution/sign-android.md
