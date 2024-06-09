@@ -17,18 +17,18 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: macos-latest
-            target: x86_64-apple-darwin
+          # - os: macos-latest
+          #   target: x86_64-apple-darwin
     steps:
       - uses: actions/checkout@master
 
       - name: Install latest rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          target: x86_64-apple-darwin
+          target: ${{ matrix.target }}
           toolchain: stable
 
-      - name: Tauri dependencies
+      - name: Tauri [Ubuntu] dependencies
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: >-
           sudo apt-get update &&
@@ -42,44 +42,56 @@ jobs:
       - uses: oven-sh/setup-bun@v1
       - name: Install JS packages
         run: bun install
-      - name: Tauri Build
-        run: bun tauri build --verbose
 
-      - name: Build Artifacts
-        id: dist
+      - name: Set Some Environment Variables (BUILT_ARCHIVES path, etc...)
+        id: prep
         run: |
-          set -x
-
-          WORKDIR="src-tauri"
-          OUTPUT_DIR="$WORKDIR/built/output"
+          OUTPUT_DIR="./built/output"
           mkdir -p "$OUTPUT_DIR"
           echo "BUILT_ARCHIVES=$OUTPUT_DIR" >> $GITHUB_OUTPUT
 
-          set -xe;
+          echo "RELEASE_NAME=${GITHUB_REPOSITORY#*/} ${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
-          cargo build --manifest-path=$WORKDIR/Cargo.toml --release -p todo;
+      - name: Tauri Build (Mynd)
+        run: |
+          set -xe
 
-          BINARIES=(mynd todo) 
+          bun tauri build --verbose
 
-          for BIN in $BINARIES; do
+          APPIMAGE_BIN_PATH=$(find -wholename "*/bundle*mynd_*AppImage" -executable)
+          DEB_BIN_PATH=$(find -wholename "*/bundle*mynd*deb")
+          RPM_BIN_PATH=$(find -wholename "*/bundle*mynd*rpm")
 
-            ARCHIVE=$BIN\_${TARGET}.tar.gz
-            BIN_PATH=$WORKDIR/target/release/$BIN
+          ARTIFACTS_FOLDER="mynd_${GITHUB_REF_NAME}"
+          mkdir $ARTIFACTS_FOLDER
 
-            strip $BIN_PATH;
-            
-            ARTIFACTS_FOLDER="${GITHUB_REPOSITORY#*/}_${GITHUB_REF_NAME}"
-            mkdir $ARTIFACTS_FOLDER
-            cp -r $BIN_PATH README.md LICENSE $ARTIFACTS_FOLDER
-            tar -caf $ARCHIVE $ARTIFACTS_FOLDER/*
+          cp -r $APPIMAGE_BIN_PATH $DEB_BIN_PATH $RPM_BIN_PATH README.md LICENSE $ARTIFACTS_FOLDER
 
-            mv $ARCHIVE $OUTPUT_DIR
-          done
+          ARCHIVE_NAME=mynd_${TARGET}.tar.gz
+          tar -caf $ARCHIVE_NAME $ARTIFACTS_FOLDER/*
+          mv $ARCHIVE_NAME ${{ steps.prep.outputs.BUILT_ARCHIVES }}
         env:
           TARGET: ${{ matrix.target }}
 
-      - name: Name Release
-        run: echo "RELEASE_NAME=${GITHUB_REPOSITORY#*/} ${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+      - name: Build Todo CLI
+        run: |
+          set -xe
+
+          cargo build --manifest-path=./src-tauri/Cargo.toml --release -p todo;
+
+          BIN_PATH=src-tauri/target/release/todo
+          # strip $BIN_PATH
+
+          ARTIFACTS_FOLDER="todo_${GITHUB_REF_NAME}"
+          mkdir $ARTIFACTS_FOLDER
+
+          cp -r $BIN_PATH README.md LICENSE $ARTIFACTS_FOLDER
+
+          ARCHIVE_NAME=todo_${TARGET}.tar.gz
+          tar -caf $ARCHIVE_NAME $ARTIFACTS_FOLDER/*
+          mv $ARCHIVE_NAME ${{ steps.prep.outputs.BUILT_ARCHIVES }}
+        env:
+          TARGET: ${{ matrix.target }}
 
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -88,6 +100,6 @@ jobs:
           generate_release_notes: true
           name: ${{ env.RELEASE_NAME }}
           files: |
-            ${{ steps.dist.outputs.BUILT_ARCHIVES }}/*
+            ${{ steps.prep.outputs.BUILT_ARCHIVES }}/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
