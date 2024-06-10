@@ -1,6 +1,15 @@
+use std::path::PathBuf;
+
+use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use todo::Todos;
+use todo::{
+    persist::{
+        jsonfile::{self, TodosJsonDB},
+        TodosDatabase,
+    },
+    Todos,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -21,6 +30,12 @@ enum Command {
     },
     /// List all todos that aren't done.
     Ls {},
+
+    /// Read and save todos from a given file
+    Import {
+        /// from which to read todo items
+        file: PathBuf,
+    },
 
     /// Dump all todos as json.
     Dump {
@@ -58,6 +73,25 @@ fn main() -> anyhow::Result<()> {
                     .collect();
 
                 println!("{}", serde_json::to_string(&todos)?);
+            }
+            Command::Import { file } => {
+                let ext = file
+                    .extension()
+                    .filter(|ext| *ext == "json")
+                    .and_then(|ext| ext.to_str());
+
+                match ext {
+                    Some("json") => {
+                        let todos = jsonfile::read_json(&file)?;
+                        let db = TodosJsonDB::default();
+
+                        db.set_all_todos(todos)?
+                    }
+                    _ => {
+                        return Err(anyhow!("unsupported file extension received")
+                            .context("extension is not one of the only supported: `json`"));
+                    }
+                }
             }
         },
         None => match args.message {
