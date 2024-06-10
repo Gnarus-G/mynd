@@ -106,7 +106,14 @@ impl<DB: TodosDatabase> Todos<DB> {
     pub fn add(&self, message: &str) -> anyhow::Result<Todo> {
         let todo = Todo::new(message.to_string());
 
-        self.inner_list()?.insert(0, todo.clone());
+        self.inner_list().map(|mut list| {
+            if list.iter().any(|i| i.id == todo.id) {
+                eprintln!("[INFO] already noted this todo message: '{}'", message);
+                eprintln!("[INFO] moving on with no changes");
+            } else {
+                list.insert(0, todo.clone());
+            }
+        })?;
 
         self.update()?;
 
