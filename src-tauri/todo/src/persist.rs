@@ -2,11 +2,49 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 
-use crate::Todo;
+use crate::{config::load_config, Todo};
 
 pub trait TodosDatabase {
     fn get_all_todos(&self) -> anyhow::Result<Vec<Todo>>;
     fn set_all_todos(&self, todos: Vec<Todo>) -> anyhow::Result<()>;
+}
+
+pub enum ActualTodosDB {
+    JsonFile(jsonfile::TodosJsonDB),
+    BinaryFile(binary::TodosBin),
+}
+
+impl Default for ActualTodosDB {
+    fn default() -> Self {
+        let cfg = load_config();
+
+        return match cfg.save_file_format {
+            crate::config::SaveFileFormat::Json => {
+                eprintln!("[INFO] using 'json' save file because of configuration.");
+                Self::JsonFile(jsonfile::TodosJsonDB::default())
+            }
+            crate::config::SaveFileFormat::Binary => {
+                eprintln!("[INFO] using 'binary' save file because of configuration.");
+                Self::BinaryFile(binary::TodosBin::default())
+            }
+        };
+    }
+}
+
+impl TodosDatabase for ActualTodosDB {
+    fn get_all_todos(&self) -> anyhow::Result<Vec<Todo>> {
+        match self {
+            ActualTodosDB::JsonFile(db) => db.get_all_todos(),
+            ActualTodosDB::BinaryFile(db) => db.get_all_todos(),
+        }
+    }
+
+    fn set_all_todos(&self, todos: Vec<Todo>) -> anyhow::Result<()> {
+        match self {
+            ActualTodosDB::JsonFile(db) => db.set_all_todos(todos),
+            ActualTodosDB::BinaryFile(db) => db.set_all_todos(todos),
+        }
+    }
 }
 
 pub mod jsonfile {
@@ -58,10 +96,11 @@ pub mod jsonfile {
     }
 
     pub fn read_json<Item: DeserializeOwned + Serialize>(filename: &Path) -> anyhow::Result<Item> {
-        let p = &std::env::var("HOME")?;
+        let p =
+            &std::env::var("HOME").context("failed to resolve the HOME environment variable")?;
         let file = open_file(&Path::new(p).join(filename))?;
         let reader = BufReader::new(&file);
-        let item = serde_json::from_reader(reader)?;
+        let item = serde_json::from_reader(reader).context("failed to read json data")?;
         Ok(item)
     }
 
@@ -88,7 +127,8 @@ pub mod jsonfile {
             .read(true)
             .create(true)
             .truncate(false)
-            .open(path)?;
+            .open(path)
+            .context("failed to open json file for reading/writing")?;
 
         Ok(file)
     }
@@ -96,7 +136,7 @@ pub mod jsonfile {
 
 pub mod binary {
 
-    use anyhow::Context;
+    use anyhow::{anyhow, Context};
     use chrono::DateTime;
 
     use crate::TodoID;
@@ -171,7 +211,7 @@ pub mod binary {
     impl Default for TodosBin {
         fn default() -> Self {
             Self {
-                filename: get_or_create_savefilename("todos.bin"),
+                filename: get_or_create_savefilename("todo.bin"),
             }
         }
     }
@@ -201,13 +241,18 @@ pub mod binary {
                 todos.push(t)
             }
 
+            debug_assert!(!todos.is_empty());
+
             Ok(todos)
         }
 
         fn set_all_todos(&self, todos: Vec<Todo>) -> anyhow::Result<()> {
             let filename = self.get_filename()?;
             let data = todos.iter().flat_map(|t| t.to_binary()).collect::<Vec<_>>();
-            std::fs::write(filename, data).context("failed to write to todos binary save-file")?;
+            std::fs::write(filename, data).context(anyhow!(
+                "failed to write to todos binary save-file: {}",
+                filename.display()
+            ))?;
             Ok(())
         }
     }
@@ -246,26 +291,31 @@ pub mod binary {
     }
 }
 
-fn get_or_create_savefilename(name: &str) -> Option<PathBuf> {
+fn get_or_create_savefilename(filename: &str) -> Option<PathBuf> {
     const DIR_NAME: &str = "mynd";
-
-    let filename = Path::new(DIR_NAME).join(name);
 
     let get_dir_path = std::env::var("HOME")
         .context("failed to read $HOME var")
         .map(|path| -> PathBuf { Path::new(&path).join(DIR_NAME) });
 
-    let filename = get_dir_path
+    let savefilepath = get_dir_path
         .and_then(|dir_path| {
+            eprintln!(
+                "[INFO] resolving mynd save directory as: {}",
+                dir_path.display()
+            );
+
             if !dir_path.is_dir() {
-                return std::fs::create_dir(dir_path)
+                return std::fs::create_dir(&dir_path)
                     .context("failed to create a 'mynd' directory")
-                    .map(|_| filename);
+                    .map(|_| dir_path);
             }
-            Ok(filename)
+
+            Ok(dir_path)
         })
+        .map(|path| path.join(filename))
         .map_err(|err| eprintln!("[ERROR] {err:#}"))
         .ok();
 
-    return filename;
+    return savefilepath;
 }

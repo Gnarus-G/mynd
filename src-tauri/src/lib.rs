@@ -1,5 +1,11 @@
 use anyhow::Context;
-use todo::{persist::jsonfile::TodosJsonDB, Todo, TodoID, Todos};
+use todo::{persist::ActualTodosDB, Todo, TodoID, Todos};
+
+type TodosState = Todos<ActualTodosDB>;
+
+fn initial_todos_state() -> TodosState {
+    Todos::load_up_with_persistor()
+}
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -91,12 +97,6 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-type TodosState = Todos<TodosJsonDB>;
-
-fn initial_todos_state() -> TodosState {
-    Todos::load_up_with_persistor()
 }
 
 type CommandResult<T> = Result<T, String>;

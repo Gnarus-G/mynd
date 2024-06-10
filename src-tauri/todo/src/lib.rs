@@ -4,9 +4,10 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
-use persist::{jsonfile::TodosJsonDB, TodosDatabase};
+use persist::{ActualTodosDB, TodosDatabase};
 use serde::{Deserialize, Serialize};
 
+mod config;
 pub mod persist;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone)]
@@ -78,9 +79,9 @@ impl<DB: TodosDatabase> Todos<DB> {
     }
 }
 
-impl Todos<TodosJsonDB> {
-    pub fn load_up_with_persistor() -> Todos<TodosJsonDB> {
-        let db = TodosJsonDB::default();
+impl Todos<ActualTodosDB> {
+    pub fn load_up_with_persistor() -> Todos<ActualTodosDB> {
+        let db = ActualTodosDB::default();
         Todos {
             list: Mutex::new(db.get_all_todos().unwrap_or_default()),
             db,
@@ -90,6 +91,7 @@ impl Todos<TodosJsonDB> {
 
 impl<DB: TodosDatabase> Todos<DB> {
     pub fn reload(&self) -> anyhow::Result<()> {
+        eprintln!("[TRACE] reloading todos");
         let todos = self.db.get_all_todos()?;
         *(self.inner_list()?) = todos;
         Ok(())
@@ -233,6 +235,7 @@ impl<DB: TodosDatabase> Todos<DB> {
 
     pub fn get_all(&self) -> anyhow::Result<Vec<Todo>> {
         let all = self.inner_list()?.clone();
+        eprintln!("[TRACE] getting all {} todos", all.len());
         Ok(all)
     }
 

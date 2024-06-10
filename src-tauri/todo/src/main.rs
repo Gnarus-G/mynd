@@ -5,11 +5,13 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use todo::{
     persist::{
-        jsonfile::{self, TodosJsonDB},
-        TodosDatabase,
+        jsonfile::{self},
+        ActualTodosDB, TodosDatabase,
     },
     Todos,
 };
+
+mod config;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -83,7 +85,7 @@ fn main() -> anyhow::Result<()> {
                 match ext {
                     Some("json") => {
                         let todos = jsonfile::read_json(&file)?;
-                        let db = TodosJsonDB::default();
+                        let db = ActualTodosDB::default();
 
                         db.set_all_todos(todos)?
                     }
