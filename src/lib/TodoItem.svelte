@@ -2,6 +2,7 @@
   type Todo = {
     id: string;
     message: string;
+    created_at: string;
     done?: boolean;
   };
 
@@ -62,13 +63,18 @@
     </label>
   </div>
 
-  <p
-    class="font-semibold hover:text-white break-words {todo.done
-      ? 'line-through'
-      : ''}"
-  >
-    {todo.message}
-  </p>
+  <div>
+    <p
+      class="font-semibold hover:text-white break-words {todo.done
+        ? 'line-through'
+        : ''}"
+    >
+      {todo.message}
+    </p>
+    <span class="text-xs text-slate-400"
+      >{new Date(todo.created_at).toLocaleString()}</span
+    >
+  </div>
   <div class="flex gap-2 w-[70px] border-solid border-1 border-white">
     {#if !disableMoveUp}
       <button

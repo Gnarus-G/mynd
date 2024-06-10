@@ -16,6 +16,7 @@
 
   async function load() {
     todos = await invoke("load");
+    console.log("[page] loaded todos", todos);
   }
 
   async function addTodo(item: string) {
