@@ -21,14 +21,6 @@
 
 <article
   class="grid grid-cols-[max-content_auto_min-content] gap-5 mt-2 items-center"
-  draggable="true"
-  on:dragstart={(ev) => {
-    console.log("[TodoItem] started drag on todo id:", todo.id);
-    if (!ev.dataTransfer) return;
-    ev.dataTransfer.dropEffect = "move";
-    ev.dataTransfer.setData("application/todo-id", todo.id);
-    ev.dataTransfer.setData("text/plain", todo.message);
-  }}
 >
   <div id="done-toggle" class="inline-flex items-center">
     <label
@@ -63,7 +55,18 @@
     </label>
   </div>
 
-  <div>
+  <div
+    class="cursor-move"
+    role="note"
+    draggable="true"
+    on:dragstart={(ev) => {
+      console.log("[TodoItem] started drag on todo id:", todo.id);
+      if (!ev.dataTransfer) return;
+      ev.dataTransfer.dropEffect = "move";
+      ev.dataTransfer.setData("application/todo-id", todo.id);
+      ev.dataTransfer.setData("text/plain", todo.message);
+    }}
+  >
     <p
       class="font-semibold hover:text-white break-words {todo.done
         ? 'line-through'
