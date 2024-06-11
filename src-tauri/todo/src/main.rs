@@ -42,6 +42,9 @@ enum Command {
         #[arg(short = 't')]
         todo: bool,
     },
+
+    /// Manage global configuration values.
+    Config(manageconfigcli::ConfigArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -112,6 +115,7 @@ fn main() -> anyhow::Result<()> {
 
                 db.set_all_todos(todos)?;
             }
+            Command::Config(a) => a.handle()?,
         },
         None => match args.message {
             Some(message) => {
@@ -136,4 +140,54 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+mod manageconfigcli {
+    use std::io::stdout;
+
+    use clap::{Args, Subcommand};
+
+    use crate::config::{self, store_config};
+
+    #[derive(Args, Debug)]
+    pub struct ConfigProps {
+        #[arg(short = 'f', long = "format")]
+        /// The storage format of the collection of todo items.
+        storage_format: config::SaveFileFormat,
+    }
+
+    #[derive(Subcommand, Debug)]
+    pub enum ConfigActions {
+        /// Update configuration values.
+        Set(ConfigProps),
+        /// Print configuration values to standard output as json.
+        Show,
+    }
+
+    #[derive(Args, Debug)]
+    pub struct ConfigArgs {
+        #[command(subcommand)]
+        command: ConfigActions,
+    }
+
+    impl ConfigArgs {
+        pub fn handle(self) -> anyhow::Result<()> {
+            match self.command {
+                ConfigActions::Set(ConfigProps { storage_format }) => {
+                    let cfg = config::MyndConfig {
+                        save_file_format: storage_format,
+                    };
+
+                    store_config(cfg);
+                }
+                ConfigActions::Show => {
+                    let cfg = config::load_config();
+                    serde_json::to_writer_pretty(stdout(), &cfg)?;
+                    println!()
+                }
+            };
+
+            Ok(())
+        }
+    }
 }

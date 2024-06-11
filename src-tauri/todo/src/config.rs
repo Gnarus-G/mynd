@@ -1,8 +1,9 @@
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 const APP_NAME: &str = "mynd";
 
-#[derive(Serialize, Deserialize)]
+#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
 pub enum SaveFileFormat {
     Json,
     Binary,
