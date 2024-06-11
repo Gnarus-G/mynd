@@ -56,11 +56,11 @@ pub mod jsonfile {
         path::{Path, PathBuf},
     };
 
-    use anyhow::Context;
+    use anyhow::{anyhow, Context};
     use serde::{de::DeserializeOwned, Serialize};
 
     pub struct TodosJsonDB {
-        filename: Option<PathBuf>,
+        filename: anyhow::Result<PathBuf>,
     }
 
     impl Default for TodosJsonDB {
@@ -73,12 +73,14 @@ pub mod jsonfile {
 
     impl TodosJsonDB {
         fn get_filename(&self) -> anyhow::Result<&Path> {
-            let name = self
-                .filename
-                .as_ref()
-                .context("failed to setup a json file for the todos")?;
-
-            return Ok(name);
+            match &self.filename {
+                Ok(p) => Ok(p),
+                Err(err) => {
+                    return Err(
+                        anyhow!("{:#}", err).context("failed to setup a json file for the todos")
+                    );
+                }
+            }
         }
     }
 
@@ -216,7 +218,7 @@ pub mod binary {
     }
 
     pub struct TodosBin {
-        filename: Option<PathBuf>,
+        filename: anyhow::Result<PathBuf>,
     }
 
     impl Default for TodosBin {
@@ -229,12 +231,14 @@ pub mod binary {
 
     impl TodosBin {
         fn get_filename(&self) -> anyhow::Result<&Path> {
-            let name = self
-                .filename
-                .as_ref()
-                .context("failed to setup a file for the todos")?;
-
-            return Ok(name);
+            match &self.filename {
+                Ok(p) => Ok(p),
+                Err(err) => {
+                    return Err(
+                        anyhow!("{:#}", err).context("failed to setup a binary file for the todos")
+                    );
+                }
+            }
         }
     }
 
@@ -339,7 +343,7 @@ pub mod binary {
     }
 }
 
-fn get_or_create_savefilename(filename: &str) -> Option<PathBuf> {
+fn get_or_create_savefilename(filename: &str) -> anyhow::Result<PathBuf> {
     const DIR_NAME: &str = "mynd";
 
     let get_dir_path = std::env::var("HOME")
@@ -361,9 +365,7 @@ fn get_or_create_savefilename(filename: &str) -> Option<PathBuf> {
 
             Ok(dir_path)
         })
-        .map(|path| path.join(filename))
-        .map_err(|err| eprintln!("[ERROR] {err:#}"))
-        .ok();
+        .map(|path| path.join(filename));
 
     return savefilepath;
 }
