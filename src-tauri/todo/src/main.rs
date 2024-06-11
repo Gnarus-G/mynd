@@ -87,22 +87,30 @@ fn main() -> anyhow::Result<()> {
 
                 let db = ActualTodosDB::default();
 
+                let imported_todos;
+
                 match ext {
                     Ok("json") => {
-                        let todos = jsonfile::read_json(&file)?;
-                        db.set_all_todos(todos)?
+                        imported_todos = jsonfile::read_json(&file)?;
                     }
                     Ok("bin") => {
                         let mut data =
                             std::fs::read(file).context("failed to read from import file")?;
-                        let todos = binary::get_todos_from_binary(&mut data)?;
-                        db.set_all_todos(todos)?;
+                        imported_todos = binary::get_todos_from_binary(&mut data)?;
                     }
                     Err(err) => {
                         return Err(err.context("unsupported file extension"))
                     }
                     _ => unreachable!("unreachable assertion failed even though we are[should be] filter out unsupported extensions in an error"),
                 }
+
+                let mut todos = db
+                    .get_all_todos()
+                    .context("failed to load current set of todos")?;
+
+                todos.extend(imported_todos);
+
+                db.set_all_todos(todos)?;
             }
         },
         None => match args.message {
