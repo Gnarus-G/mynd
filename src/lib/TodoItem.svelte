@@ -1,10 +1,5 @@
 <script lang="ts">
-  type Todo = {
-    id: string;
-    message: string;
-    created_at: string;
-    done?: boolean;
-  };
+  import type { Todo } from "./types";
 
   export let todo: Todo;
   export let disableMoveUp = false;

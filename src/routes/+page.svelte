@@ -6,13 +6,7 @@
   import Toasts from "$lib/toasts/Toasts.svelte";
   import { erroneous } from "$lib/utils";
   import { addToast } from "$lib/toasts/store";
-
-  type Todo = {
-    id: string;
-    message: string;
-    created_at: string;
-    done?: boolean;
-  };
+  import type { Todo } from "$lib/types";
 
   let todos: Todo[] = [];
 
