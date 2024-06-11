@@ -145,6 +145,11 @@ pub mod binary {
 
     use super::*;
 
+    fn into_int_bytes(int: usize) -> [u8; 4] {
+        let int = int as u32;
+        return int.to_be_bytes();
+    }
+
     impl Todo {
         fn to_binary(&self) -> Vec<u8> {
             let message_bin = self.message.as_bytes();
@@ -159,11 +164,11 @@ pub mod binary {
 
             let version: &[u8] = &[1];
             let data = [
-                version,                           // first byte is the version of this format
-                &self.message.len().to_be_bytes(), // next 8 bytes is message len
-                message_bin,                       // next len bytes is message
-                &time_bin,                         // next 8 bytes in timestamp
-                &[done_bin],                       // last byte is 0 or 1 for isDone flag
+                version,                             // first byte is the version of this format
+                &into_int_bytes(self.message.len()), // next 4 bytes is message len
+                message_bin,                         // next len bytes is message
+                &time_bin,                           // next 8 bytes in timestamp
+                &[done_bin],                         // last byte is 0 or 1 for isDone flag
             ]
             .concat();
 
@@ -174,14 +179,14 @@ pub mod binary {
         fn from_binary(data: &mut Vec<u8>) -> anyhow::Result<Todo> {
             let _version_byte = data.pop().context("empty data")?;
 
-            let mut message_len = [0u8; 8];
+            let mut message_len = [0u8; 4];
             for i in message_len.iter_mut() {
                 *i = data.pop().context("empty data")?
             }
 
-            let message_len = usize::from_be_bytes(message_len);
+            let message_len = u32::from_be_bytes(message_len);
 
-            let mut message = Vec::with_capacity(message_len);
+            let mut message = Vec::with_capacity(message_len as usize);
             for _ in 0..message_len {
                 let byte = data.pop().context("empty data")?;
                 message.push(byte);
@@ -266,7 +271,7 @@ pub mod binary {
             return Ok(vec![]);
         }
 
-        let mut todos = Vec::with_capacity(data.len() / 18); // 18 is the intended minimun of bytes
+        let mut todos = Vec::with_capacity(data.len() / 14); // 14 is the intended minimun of bytes
                                                              // to represent a todo message, (i.e an
                                                              // empty message string)
         data.reverse(); // make it a stack.
