@@ -136,6 +136,8 @@ pub mod jsonfile {
 
 pub mod binary {
 
+    use std::{fs::OpenOptions, io::Read};
+
     use anyhow::{anyhow, Context};
     use chrono::DateTime;
 
@@ -234,8 +236,16 @@ pub mod binary {
     impl TodosDatabase for TodosBin {
         fn get_all_todos(&self) -> anyhow::Result<Vec<Todo>> {
             let filename = self.get_filename()?;
-            let mut data =
-                std::fs::read(filename).context("failed to read binary save-file of todos")?;
+            let mut file = OpenOptions::new()
+                .read(true)
+                .create(true)
+                .append(true)
+                .open(filename)?;
+
+            let mut data = vec![];
+
+            file.read_to_end(&mut data)
+                .context("failed to read binary save-file of todos")?;
 
             get_todos_from_binary(&mut data)
         }
