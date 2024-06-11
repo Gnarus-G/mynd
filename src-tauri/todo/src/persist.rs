@@ -233,28 +233,42 @@ pub mod binary {
             let mut data =
                 std::fs::read(filename).context("failed to read binary save-file of todos")?;
 
-            let mut todos = vec![];
-
-            data.reverse(); // make it a stack.
-            while !data.is_empty() {
-                let t = Todo::from_binary(&mut data)?;
-                todos.push(t)
-            }
-
-            debug_assert!(!todos.is_empty());
-
-            Ok(todos)
+            get_todos_from_binary(&mut data)
         }
 
         fn set_all_todos(&self, todos: Vec<Todo>) -> anyhow::Result<()> {
             let filename = self.get_filename()?;
-            let data = todos.iter().flat_map(|t| t.to_binary()).collect::<Vec<_>>();
+            let data = convert_todos_to_binary(&todos);
             std::fs::write(filename, data).context(anyhow!(
                 "failed to write to todos binary save-file: {}",
                 filename.display()
             ))?;
             Ok(())
         }
+    }
+
+    pub fn get_todos_from_binary(data: &mut Vec<u8>) -> anyhow::Result<Vec<Todo>> {
+        if data.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut todos = Vec::with_capacity(data.len() * 18); // 18 is the intended minimun of bytes
+                                                             // to represent a todo message, (i.e an
+                                                             // empty message string)
+        data.reverse(); // make it a stack.
+        while !data.is_empty() {
+            let t = Todo::from_binary(data)?;
+            todos.push(t)
+        }
+
+        debug_assert!(!todos.is_empty());
+
+        return Ok(todos);
+    }
+
+    fn convert_todos_to_binary(todos: &[Todo]) -> Vec<u8> {
+        let data = todos.iter().flat_map(|t| t.to_binary()).collect::<Vec<_>>();
+        return data;
     }
 
     #[cfg(test)]
@@ -286,6 +300,21 @@ pub mod binary {
             let mut data = t.to_binary();
             data.reverse();
             assert_eq!(t, Todo::from_binary(&mut data).unwrap());
+            assert!(data.is_empty())
+        }
+
+        #[test]
+        fn test_serde_binary_many() {
+            let todos = [
+                Todo::new("one".to_string()),
+                Todo::new("two".to_string()),
+                Todo::new("three".to_string()),
+                Todo::new("adsfasd;lfkjasdf".to_string()),
+            ];
+
+            let mut data = convert_todos_to_binary(&todos);
+            assert_eq!(todos.to_vec(), get_todos_from_binary(&mut data).unwrap());
+
             assert!(data.is_empty())
         }
     }

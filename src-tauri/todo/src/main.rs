@@ -1,13 +1,10 @@
-use std::path::PathBuf;
+use std::{ffi::OsStr, path::PathBuf};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use todo::{
-    persist::{
-        jsonfile::{self},
-        ActualTodosDB, TodosDatabase,
-    },
+    persist::{binary, jsonfile, ActualTodosDB, TodosDatabase},
     Todos,
 };
 
@@ -77,22 +74,34 @@ fn main() -> anyhow::Result<()> {
                 println!("{}", serde_json::to_string(&todos)?);
             }
             Command::Import { file } => {
+                let supported_extensions = &["json", "bin"].map(OsStr::new);
+
                 let ext = file
                     .extension()
-                    .filter(|ext| *ext == "json")
-                    .and_then(|ext| ext.to_str());
+                    .filter(|ext| supported_extensions.contains(ext))
+                    .context(anyhow!(
+                        "extension is not one of the only supported: {:?}",
+                        supported_extensions.map(|s| s.to_string_lossy()),
+                    ))
+                    .and_then(|e| e.to_str().context("file extension is not in utf-8"));
+
+                let db = ActualTodosDB::default();
 
                 match ext {
-                    Some("json") => {
+                    Ok("json") => {
                         let todos = jsonfile::read_json(&file)?;
-                        let db = ActualTodosDB::default();
-
                         db.set_all_todos(todos)?
                     }
-                    _ => {
-                        return Err(anyhow!("unsupported file extension received")
-                            .context("extension is not one of the only supported: `json`"));
+                    Ok("bin") => {
+                        let mut data =
+                            std::fs::read(file).context("failed to read from import file")?;
+                        let todos = binary::get_todos_from_binary(&mut data)?;
+                        db.set_all_todos(todos)?;
                     }
+                    Err(err) => {
+                        return Err(err.context("unsupported file extension"))
+                    }
+                    _ => unreachable!("unreachable assertion failed even though we are[should be] filter out unsupported extensions in an error"),
                 }
             }
         },
