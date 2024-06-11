@@ -155,8 +155,10 @@ pub mod binary {
             let time_bin = timestamp.to_be_bytes();
             let done_bin: u8 = if self.done { 1 } else { 0 };
 
+            let version: &[u8] = &[1];
             let data = [
-                &self.message.len().to_be_bytes(), // first 8 bytes is message len
+                version,                           // first byte is the version of this format
+                &self.message.len().to_be_bytes(), // next 8 bytes is message len
                 message_bin,                       // next len bytes is message
                 &time_bin,                         // next 8 bytes in timestamp
                 &[done_bin],                       // last byte is 0 or 1 for isDone flag
@@ -168,6 +170,8 @@ pub mod binary {
 
         /// Expecting data to be a reverse byte buffer, so as to emulate a stack.
         fn from_binary(data: &mut Vec<u8>) -> anyhow::Result<Todo> {
+            let _version_byte = data.pop().context("empty data")?;
+
             let mut message_len = [0u8; 8];
             for i in message_len.iter_mut() {
                 *i = data.pop().context("empty data")?
