@@ -10,6 +10,7 @@
   export let onMoveDown: (id: string) => void;
 
   let overDropzone = false;
+  let isDragging = false;
 
   export let onDropBelow: (draggedTodoId: string, belowTodoId: string) => void;
 </script>
@@ -51,15 +52,21 @@
   </div>
 
   <div
-    class="cursor-move"
+    class="cursor-move transition-transform {isDragging
+      ? 'bg-gradient-to-r from-slate-700 bg-opacity-50 from-10% rounded-lg p-2'
+      : ''} {overDropzone && '-translate-y-4'}"
     role="note"
     draggable="true"
     on:dragstart={(ev) => {
       console.log("[TodoItem] started drag on todo id:", todo.id);
+      isDragging = true;
       if (!ev.dataTransfer) return;
       ev.dataTransfer.dropEffect = "move";
       ev.dataTransfer.setData("application/todo-id", todo.id);
       ev.dataTransfer.setData("text/plain", todo.message);
+    }}
+    on:dragend={(_) => {
+      isDragging = false;
     }}
   >
     <p
@@ -90,7 +97,7 @@
 </article>
 <div
   role="region"
-  class="dropzone ml-14 bg-slate-700 rounded-sm"
+  class="dropzone ml-16 rounded-tl-sm"
   aria-label="drop zone below a todo item"
   data-dropready={overDropzone}
   on:dragover={(ev) => {
@@ -127,6 +134,12 @@
     opacity: 0;
     height: 1rem;
     transform: scaleY(0.5);
+    background: linear-gradient(
+      to right bottom,
+      theme("colors.slate.700"),
+      5%,
+      transparent
+    );
   }
 
   .dropzone[data-dropready="true"] {

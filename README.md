@@ -11,6 +11,7 @@ Yet another todo app, because I'm opinionated about the dumbest things.
 - [x] Local Persistence Option
 - [x] Soft Delete Done Items
 - [ ] Permanent Deletion
+- [ ] Remind Command: /r (Desktop Notifications)
 - [ ] Remote Persistence Option
 
 ## Install
