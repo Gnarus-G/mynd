@@ -107,7 +107,7 @@ trait MapToCommandResult<T> {
 
 impl<T> MapToCommandResult<T> for anyhow::Result<T> {
     fn into_command_result(self) -> CommandResult<T> {
-        self.map_err(|err| err.to_string())
+        self.map_err(|err| format!("{:#}", err))
     }
 }
 
