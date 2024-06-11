@@ -3,6 +3,9 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import TodoItem from "../lib/TodoItem.svelte";
+  import Toasts from "$lib/toasts/Toasts.svelte";
+  import { erroneous } from "$lib/utils";
+  import { addToast } from "$lib/toasts/store";
 
   type Todo = {
     id: string;
@@ -15,38 +18,76 @@
 
   onMount(load);
 
+  function handleError(e: string) {
+    addToast({
+      type: "error",
+      message: e,
+    });
+    console.error("[error] %s", e);
+  }
+
   async function load() {
-    todos = await invoke("load");
-    console.log("[page] loaded todos", todos);
+    await erroneous<Todo[]>(invoke("load"))({
+      success: (data) => {
+        todos = data;
+        console.log("[page] loaded todos", todos);
+      },
+      error: handleError,
+    });
   }
 
   async function addTodo(item: string) {
     if (!item) return;
-    todos = await invoke("add", {
-      todo: item,
+
+    await erroneous<Todo[]>(
+      invoke("add", {
+        todo: item,
+      }),
+    )({
+      success: (data) => {
+        todos = data;
+      },
+      error: handleError,
     });
   }
 
   async function removeTodo(id: string) {
-    todos = await invoke("remove", { id });
+    await erroneous<Todo[]>(invoke("remove", { id }))({
+      success: (data) => (todos = data),
+      error: handleError,
+    });
   }
 
   async function cleanTodos() {
-    todos = await invoke("remove_done");
+    await erroneous<Todo[]>(invoke("remove_done"))({
+      success: (data) => (todos = data),
+      error: handleError,
+    });
   }
 
   async function moveUp(id: string) {
-    todos = await invoke("move_up", { id });
+    await erroneous<Todo[]>(invoke("move_up", { id }))({
+      success: (data) => (todos = data),
+      error: handleError,
+    });
   }
 
   async function moveDown(id: string) {
-    todos = await invoke("move_down", { id });
+    await erroneous<Todo[]>(invoke("move_down", { id }))({
+      success: (data) => (todos = data),
+      error: handleError,
+    });
   }
 
   async function moveBelow(sourceTodoId: string, targetTodoId: string) {
-    todos = await invoke("move_below", {
-      id: sourceTodoId,
-      targetId: targetTodoId,
+    await erroneous<Todo[]>(
+      invoke("move_below", {
+        id: sourceTodoId,
+        targetId: targetTodoId,
+      }),
+    )({
+      success: (data) => (todos = data),
+      error: handleError,
     });
   }
 </script>
@@ -92,3 +133,5 @@
     {/each}
   </ul>
 </main>
+
+<Toasts />
