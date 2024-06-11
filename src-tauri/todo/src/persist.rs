@@ -16,7 +16,7 @@ pub enum ActualTodosDB {
 
 impl Default for ActualTodosDB {
     fn default() -> Self {
-        let cfg = load_config();
+        let cfg = load_config().unwrap_or_default();
 
         return match cfg.save_file_format {
             crate::config::SaveFileFormat::Json => {

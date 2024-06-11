@@ -178,10 +178,10 @@ mod manageconfigcli {
                         save_file_format: storage_format,
                     };
 
-                    store_config(cfg);
+                    store_config(cfg)?;
                 }
                 ConfigActions::Show => {
-                    let cfg = config::load_config();
+                    let cfg = config::load_config()?;
                     serde_json::to_writer_pretty(stdout(), &cfg)?;
                     println!()
                 }

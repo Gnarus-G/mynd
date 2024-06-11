@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
@@ -22,10 +23,10 @@ impl Default for MyndConfig {
     }
 }
 
-pub fn load_config() -> MyndConfig {
-    confy::load::<MyndConfig>(APP_NAME, None).expect("failed to load cli configs")
+pub fn load_config() -> anyhow::Result<MyndConfig> {
+    confy::load::<MyndConfig>(APP_NAME, None).context("failed to load cli configs")
 }
 
-pub fn store_config(cfg: MyndConfig) {
-    confy::store(APP_NAME, None, cfg).expect("failed to store cli configs")
+pub fn store_config(cfg: MyndConfig) -> anyhow::Result<()> {
+    confy::store(APP_NAME, None, cfg).context("failed to store cli configs")
 }
