@@ -1,12 +1,6 @@
-use std::{ffi::OsStr, path::PathBuf};
-
-use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use todo::{
-    persist::{binary, jsonfile, ActualTodosDB, TodosDatabase},
-    Todos,
-};
+use todo::Todos;
 
 mod config;
 
@@ -33,10 +27,7 @@ enum Command {
     Ls {},
 
     /// Read and save todos from a given file
-    Import {
-        /// from which to read todo items
-        file: PathBuf,
-    },
+    Import(import::ImportArgs),
 
     /// Dump all todos as json.
     Dump {
@@ -58,7 +49,7 @@ fn main() -> anyhow::Result<()> {
         Some(c) => match c {
             Command::Done { ids } => {
                 for id in ids {
-                    todos.mark_done(id.into())?
+                    todos.mark_done(id)?
                 }
             }
             Command::Ls {} => todos
@@ -78,45 +69,7 @@ fn main() -> anyhow::Result<()> {
 
                 println!("{}", serde_json::to_string(&todos)?);
             }
-            Command::Import { file } => {
-                let supported_extensions = &["json", "bin"].map(OsStr::new);
-
-                let ext = file
-                    .extension()
-                    .filter(|ext| supported_extensions.contains(ext))
-                    .context(anyhow!(
-                        "extension is not one of the only supported: {:?}",
-                        supported_extensions.map(|s| s.to_string_lossy()),
-                    ))
-                    .and_then(|e| e.to_str().context("file extension is not in utf-8"));
-
-                let db = ActualTodosDB::default();
-
-                let imported_todos;
-
-                match ext {
-                    Ok("json") => {
-                        imported_todos = jsonfile::read_json(&file)?;
-                    }
-                    Ok("bin") => {
-                        let mut data =
-                            std::fs::read(file).context("failed to read from import file")?;
-                        imported_todos = binary::get_todos_from_binary(&mut data)?;
-                    }
-                    Err(err) => {
-                        return Err(err.context("unsupported file extension"))
-                    }
-                    _ => unreachable!("unreachable assertion failed even though we are[should be] filter out unsupported extensions in an error"),
-                }
-
-                let mut todos = db
-                    .get_all_todos()
-                    .context("failed to load current set of todos")?;
-
-                todos.extend(imported_todos);
-
-                db.set_all_todos(todos)?;
-            }
+            Command::Import(a) => a.handle()?,
             Command::Config(a) => a.handle()?,
             Command::Rm(a) => a.handle()?,
         },
@@ -170,6 +123,67 @@ mod remove {
                     }
                 }
             }
+
+            Ok(())
+        }
+    }
+}
+
+mod import {
+    use std::{ffi::OsStr, path::PathBuf};
+
+    use anyhow::{anyhow, Context};
+    use todo::persist::{binary, jsonfile, ActualTodosDB, TodosDatabase};
+
+    use clap::Args;
+
+    #[derive(Debug, Args)]
+    pub struct ImportArgs {
+        /// from which to read todo items
+        file: PathBuf,
+    }
+
+    impl ImportArgs {
+        pub fn handle(self) -> anyhow::Result<()> {
+            let file = self.file;
+
+            let supported_extensions = &["json", "bin"].map(OsStr::new);
+
+            let ext = file
+                .extension()
+                .filter(|ext| supported_extensions.contains(ext))
+                .context(anyhow!(
+                    "extension is not one of the only supported: {:?}",
+                    supported_extensions.map(|s| s.to_string_lossy()),
+                ))
+                .and_then(|e| e.to_str().context("file extension is not in utf-8"));
+
+            let db = ActualTodosDB::default();
+
+            let imported_todos;
+
+            match ext {
+                    Ok("json") => {
+                        imported_todos = jsonfile::read_json(&file)?;
+                    }
+                    Ok("bin") => {
+                        let mut data =
+                            std::fs::read(file).context("failed to read from import file")?;
+                        imported_todos = binary::get_todos_from_binary(&mut data)?;
+                    }
+                    Err(err) => {
+                        return Err(err.context("unsupported file extension"))
+                    }
+                    _ => unreachable!("unreachable assertion failed even though we are[should be] filter out unsupported extensions in an error"),
+                }
+
+            let mut todos = db
+                .get_all_todos()
+                .context("failed to load current set of todos")?;
+
+            todos.extend(imported_todos);
+
+            db.set_all_todos(todos)?;
 
             Ok(())
         }
