@@ -10,27 +10,34 @@ Yet another todo app, because I'm opinionated about the dumbest things.
 - [x] CLI for efficiency
 - [x] Local Persistence Option
 - [x] Soft Delete Done Items
-- [x] Permanent Deletion
+- [x] Permanent Deletion (Drap-n-drop to trash bin)
 - [ ] Remind Command: /r (Desktop Notifications)
 - [ ] Remote Persistence Option
 
 ## Install
 
+### Recommended Option
+
 ```sh
-git clone https://github.com/Gnarus-G/mynd
-cd mynd
-sh install.sh
+curl -fsSL https://raw.githubusercontent.com/Gnarus-G/mynd/main/install.sh | sh
 ```
 
-This depends on you having installed [bun](https://bun.sh/) and [rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+This depends on you having installed [bun](https://bun.sh/) and [rust](https://doc.rust-lang.org/cargo/getting-started/installation.html); `git` as well, but you
+probably already have that.
+
+### Other Options
+
+Find the executables in the [releases](https://github.com/Gnarus-G/mynd/releases).
 
 ## Usage
 
 Start up the GUI.
 
 ```sh
-mynd
+todo gui
 ```
+
+Or just call `mynd` directly, which is what `todo gui` does.
 
 At any point you can pull up your terminal and add a todo item like so.
 
@@ -47,6 +54,7 @@ Commands:
   done    Mark one or more todo items as done
   rm      Delete a todo item, regardless of if it's done or not
   ls      List all todos that aren't done
+  gui     Launch the GUI (mynd). Assuming it's in the path
   import  Read and save todos from a given file
   dump    Dump all todos as json
   config  Manage global configuration values

@@ -1,3 +1,6 @@
+use std::os::unix::process::CommandExt;
+
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use todo::Todos;
@@ -25,6 +28,9 @@ enum Command {
     Rm(remove::RemoveArgs),
     /// List all todos that aren't done.
     Ls {},
+
+    /// Launch the GUI (mynd). Assuming it's in the path.
+    Gui,
 
     /// Read and save todos from a given file
     Import(import::ImportArgs),
@@ -72,6 +78,10 @@ fn main() -> anyhow::Result<()> {
             Command::Import(a) => a.handle()?,
             Command::Config(a) => a.handle()?,
             Command::Rm(a) => a.handle()?,
+            Command::Gui => {
+                let err = std::process::Command::new("mynd").exec();
+                return Err(err).context("failed to run the executable `mynd`. See the README @ https://github.com/Gnarus-G/mynd");
+            }
         },
         None => match args.message {
             Some(message) => {
