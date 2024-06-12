@@ -10,11 +10,17 @@
     moveUp,
     moveDown,
     moveBelow,
+    listulelement,
   } from "$lib/store";
   import TrashCan from "$lib/trash/TrashCan.svelte";
   import TodoInput from "$lib/TodoInput.svelte";
 
-  onMount(load);
+  onMount(async () => {
+    await load();
+    $listulelement?.lastElementChild?.scrollIntoView({
+      behavior: "smooth",
+    });
+  });
 </script>
 
 <svelte:window on:focus={load} />
@@ -22,7 +28,11 @@
 <main
   class="h-screen overflow-y-auto bg-gray-800 text-gray-300 [&_input]:bg-gray-700 flex flex-col items-center justify-center gap-10"
 >
-  <ul class="overflow-y-auto container px-5" use:autoAnimate>
+  <ul
+    bind:this={$listulelement}
+    class="overflow-y-auto container px-5"
+    use:autoAnimate
+  >
     {#each $todos as todo, idx (todo.id)}
       <TodoItem
         {todo}

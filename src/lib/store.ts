@@ -3,6 +3,8 @@ import { erroneous, handleError } from "./utils";
 import { invoke } from "@tauri-apps/api/core";
 import { addToast } from "./toasts/store";
 
+export const listulelement = writable<HTMLUListElement | null>(null);
+
 export type Todo = {
   id: string;
   message: string;
@@ -32,6 +34,15 @@ export async function addTodo(item: string) {
   )({
     success: (data) => {
       todos.set(data);
+      listulelement.update((el) => {
+        // timeout is to give the list element time to refresh with the new item.
+        setTimeout(() => {
+          el?.lastElementChild?.scrollIntoView({
+            behavior: "smooth",
+          });
+        }, 70);
+        return el;
+      });
     },
     error: handleError,
   });
