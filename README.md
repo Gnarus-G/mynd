@@ -2,7 +2,7 @@
 
 Yet another todo app, because I'm opinionated about the dumbest things.
 
-![image](https://github.com/Gnarus-G/mynd/assets/37311893/1e1567a7-2c06-4371-a66d-c44513c8b0d7)
+![image](https://github.com/Gnarus-G/mynd/assets/37311893/69358ce2-5711-4f5b-a8be-cb989ec0c112)
 
 ## Features
 
@@ -14,7 +14,7 @@ Yet another todo app, because I'm opinionated about the dumbest things.
 - [ ] Remind Command: /r (Desktop Notifications)
 - [ ] Remote Persistence Option
 
-## Install
+## Install (Linux only)
 
 ### Recommended Option
 
