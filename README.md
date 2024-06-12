@@ -1,6 +1,9 @@
 # mynd
 
-Yet another todo app, because I'm opinionated about the dumbest things.
+_Yet another todo app_.
+
+A [very] simple todo list management cli tool for developers, with an optional gui. The fastest way I've found to go from needing to write something quickly (i.e during a meeting)
+to having it written down.
 
 ![image](https://github.com/Gnarus-G/mynd/assets/37311893/69358ce2-5711-4f5b-a8be-cb989ec0c112)
 
@@ -11,6 +14,7 @@ Yet another todo app, because I'm opinionated about the dumbest things.
 - [x] Local Persistence Option
 - [x] Soft Delete Done Items
 - [x] Permanent Deletion (Drap-n-drop to trash bin)
+- [ ] Todo Language & LSP
 - [ ] Remind Command: /r (Desktop Notifications)
 - [ ] Remote Persistence Option
 
@@ -31,6 +35,16 @@ Find the executables in the [releases](https://github.com/Gnarus-G/mynd/releases
 
 ## Usage
 
+### CLI
+
+At any point you can pull up your terminal and add a todo item like so.
+
+```sh
+todo "todo message"
+```
+
+### GUI
+
 Start up the GUI.
 
 ```sh
@@ -38,12 +52,6 @@ todo gui
 ```
 
 Or just call `mynd` directly, which is what `todo gui` does.
-
-At any point you can pull up your terminal and add a todo item like so.
-
-```sh
-todo "todo message"
-```
 
 Very convenient when your manager is rapping requirements at you during a meeting.
 
