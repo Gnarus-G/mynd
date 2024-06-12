@@ -3,10 +3,13 @@ use std::{
     usize,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+use collection::array::TodoArrayList;
+use collection::TodoCollection;
 use persist::{ActualTodosDB, TodosDatabase};
 use serde::{Deserialize, Serialize};
 
+mod collection;
 mod config;
 pub mod persist;
 
@@ -66,14 +69,14 @@ impl Todo {
 
 #[derive(Debug)]
 pub struct Todos<DB: TodosDatabase> {
-    list: Mutex<Vec<Todo>>,
+    list: Mutex<collection::array::TodoArrayList>,
     db: DB,
 }
 
 impl<DB: TodosDatabase> Todos<DB> {
     pub fn new(db: DB) -> Self {
         Self {
-            list: Mutex::new(vec![]),
+            list: Mutex::new(collection::array::TodoArrayList::new()),
             db,
         }
     }
@@ -82,10 +85,8 @@ impl<DB: TodosDatabase> Todos<DB> {
 impl Todos<ActualTodosDB> {
     pub fn load_up_with_persistor() -> Todos<ActualTodosDB> {
         let db = ActualTodosDB::default();
-        Todos {
-            list: Mutex::new(db.get_all_todos().unwrap_or_default()),
-            db,
-        }
+        let list = Mutex::new(TodoArrayList::from(db.get_all_todos().unwrap_or_default()));
+        Todos { list, db }
     }
 }
 
@@ -93,27 +94,18 @@ impl<DB: TodosDatabase> Todos<DB> {
     pub fn reload(&self) -> anyhow::Result<()> {
         eprintln!("[TRACE] reloading todos");
         let todos = self.db.get_all_todos()?;
-        *(self.inner_list()?) = todos;
+        *(self.inner_list()?) = TodoArrayList::from(todos);
         Ok(())
     }
 
-    fn inner_list(&self) -> anyhow::Result<MutexGuard<Vec<Todo>>> {
+    fn inner_list(&self) -> anyhow::Result<MutexGuard<TodoArrayList>> {
         self.list
             .try_lock()
             .map_err(|err| anyhow!("{err}").context("failed to acquire lock on todos list"))
     }
 
     pub fn add(&self, message: &str) -> anyhow::Result<Todo> {
-        let todo = Todo::new(message.to_string());
-
-        self.inner_list().map(|mut list| {
-            if list.iter().any(|i| i.id == todo.id) {
-                eprintln!("[INFO] already noted this todo message: '{}'", message);
-                eprintln!("[INFO] moving on with no changes");
-            } else {
-                list.insert(0, todo.clone());
-            }
-        })?;
+        let todo = self.inner_list()?.add(message)?;
 
         self.update()?;
 
@@ -121,9 +113,7 @@ impl<DB: TodosDatabase> Todos<DB> {
     }
 
     pub fn remove(&self, id: String) -> anyhow::Result<()> {
-        let index = self.find_index(id)?;
-
-        self.inner_list()?.remove(index);
+        self.inner_list()?.remove(id)?;
 
         eprintln!("[INFO] removed a todo item");
 
@@ -132,36 +122,8 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(())
     }
 
-    fn len(&self) -> anyhow::Result<usize> {
-        let size = self
-            .inner_list()
-            .context("failed to get inner todo list to check size")?
-            .len();
-
-        Ok(size)
-    }
-
-    fn find_index(&self, id: String) -> anyhow::Result<usize> {
-        let idx = self
-            .inner_list()?
-            .iter()
-            .enumerate()
-            .find(|(_, t)| t.id == TodoID(id.clone()))
-            .context("didn't find a todo by the id provided")?
-            .0;
-
-        Ok(idx)
-    }
-
-    pub fn mark_done(&self, id: TodoID) -> anyhow::Result<()> {
-        let idx = self.find_index(id.0)?;
-
-        self.inner_list().map(|mut l| {
-            let todo = l.get_mut(idx);
-            if let Some(todo) = todo {
-                todo.done = !todo.done;
-            }
-        })?;
+    pub fn mark_done(&self, id: String) -> anyhow::Result<()> {
+        self.inner_list()?.mark_done(id)?;
 
         self.update()?;
 
@@ -169,81 +131,30 @@ impl<DB: TodosDatabase> Todos<DB> {
     }
 
     pub fn remove_done(&self) -> anyhow::Result<()> {
-        let copy = self.get_all()?;
-        *(self.inner_list()?) = copy.iter().filter(|t| !t.done).cloned().collect();
+        self.inner_list()?.remove_done();
         self.update()?;
 
         Ok(())
     }
 
     pub fn move_up(&self, id: String) -> anyhow::Result<()> {
-        let idx = self.find_index(id)?;
+        self.inner_list()?.move_up(id)?;
 
-        if idx < self.inner_list()?.len() {
-            let curr = self.inner_list()?[idx].clone();
-            let temp = self.inner_list()?[idx - 1].clone();
-
-            self.inner_list()?[idx] = temp;
-            self.inner_list()?[idx - 1] = curr;
-
-            self.update()?;
-        }
+        self.update()?;
 
         Ok(())
     }
 
     pub fn move_down(&self, id: String) -> anyhow::Result<()> {
-        let idx = self.find_index(id)?;
+        self.inner_list()?.move_down(id)?;
 
-        if idx < self.inner_list()?.len() {
-            let curr = self.inner_list()?[idx].clone();
-            let temp = self.inner_list()?[idx + 1].clone();
-
-            self.inner_list()?[idx] = temp;
-            self.inner_list()?[idx + 1] = curr;
-
-            self.update()?;
-        }
+        self.update()?;
 
         Ok(())
     }
 
-    /// Move a todo item to be directly below another.
     pub fn move_below(&self, id: String, target_id: String) -> anyhow::Result<()> {
-        // remember here that todos are added to the front of the list
-        // so 0..len is from most newest to oldest, top to bottom
-        // so i + 1 is below i
-
-        let idx = self.find_index(id)?;
-        let target_idx = self.find_index(target_id)?;
-        let below_target_idx = target_idx + 1;
-
-        // wouldn't make a difference if todo is own target or already below target
-        if idx == target_idx {
-            eprintln!("[INFO] noop: won't move a todo item below itself");
-            return Ok(());
-        }
-
-        if idx == below_target_idx {
-            eprintln!("[INFO] noop: todo is already below target");
-            return Ok(());
-        }
-
-        let size = self.len()?;
-        if idx >= size || target_idx >= size {
-            eprintln!("[WARN] tried to move todo item below another but one of them doesn't exist");
-            return Ok(()); // TODO: error, bad input
-        }
-
-        let source = self.inner_list()?[idx].clone();
-
-        if idx < target_idx {
-            self.inner_list()?.remove(idx);
-            self.inner_list()?.insert(target_idx, source);
-        } else {
-            self.inner_list()?.remove(idx);
-            self.inner_list()?.insert(below_target_idx, source);
-        }
+        self.inner_list()?.move_below(id, target_id)?;
 
         eprintln!("[INFO] move a todo item below another");
 
@@ -253,7 +164,7 @@ impl<DB: TodosDatabase> Todos<DB> {
     }
 
     pub fn get_all(&self) -> anyhow::Result<Vec<Todo>> {
-        let all = self.inner_list()?.clone();
+        let all = self.inner_list()?.get_all();
         eprintln!("[TRACE] getting all {} todos", all.len());
         Ok(all)
     }
@@ -315,11 +226,11 @@ mod tests {
         assert_eq!(
             messages,
             vec![
-                "4".to_string(),
+                "1".to_string(),
+                "2".to_string(),
                 "3".to_string(),
                 "5".to_string(),
-                "2".to_string(),
-                "1".to_string(),
+                "4".to_string(),
             ]
         )
     }
@@ -347,11 +258,11 @@ mod tests {
         assert_eq!(
             messages,
             vec![
+                "1".to_string(),
+                "3".to_string(),
+                "4".to_string(),
                 "5".to_string(),
                 "2".to_string(),
-                "4".to_string(),
-                "3".to_string(),
-                "1".to_string(),
             ]
         )
     }
@@ -379,11 +290,11 @@ mod tests {
         assert_eq!(
             messages,
             vec![
-                "4".to_string(),
-                "3".to_string(),
-                "2".to_string(),
                 "1".to_string(),
                 "5".to_string(),
+                "2".to_string(),
+                "3".to_string(),
+                "4".to_string(),
             ]
         )
     }

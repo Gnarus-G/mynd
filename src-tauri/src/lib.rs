@@ -1,5 +1,5 @@
 use anyhow::Context;
-use todo::{persist::ActualTodosDB, Todo, TodoID, Todos};
+use todo::{persist::ActualTodosDB, Todo, Todos};
 
 type TodosState = Todos<ActualTodosDB>;
 
@@ -30,7 +30,7 @@ fn add(todo: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult 
 #[tauri::command]
 fn remove(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
-        .mark_done(TodoID(id))
+        .mark_done(id)
         .context("failed to remove (mark done) a todo")
         .into_command_result()?;
 
