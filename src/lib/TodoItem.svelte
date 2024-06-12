@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Todo } from "./types";
+  import { trashCanIsShowing } from "./trash/store";
+  import type { Todo } from "./store";
 
   export let todo: Todo;
   export let disableMoveUp = false;
@@ -60,12 +61,14 @@
     on:dragstart={(ev) => {
       console.log("[TodoItem] started drag on todo id:", todo.id);
       isDragging = true;
+      trashCanIsShowing.set(true);
       if (!ev.dataTransfer) return;
       ev.dataTransfer.dropEffect = "move";
       ev.dataTransfer.setData("application/todo-id", todo.id);
       ev.dataTransfer.setData("text/plain", todo.message);
     }}
     on:dragend={(_) => {
+      trashCanIsShowing.set(false);
       isDragging = false;
     }}
   >

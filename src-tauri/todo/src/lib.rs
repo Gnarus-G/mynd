@@ -120,6 +120,18 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(todo)
     }
 
+    pub fn remove(&self, id: String) -> anyhow::Result<()> {
+        let index = self.find_index(id)?;
+
+        self.inner_list()?.remove(index);
+
+        eprintln!("[INFO] removed a todo item");
+
+        self.update()?;
+
+        Ok(())
+    }
+
     fn len(&self) -> anyhow::Result<usize> {
         let size = self
             .inner_list()

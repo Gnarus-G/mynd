@@ -10,7 +10,7 @@ Yet another todo app, because I'm opinionated about the dumbest things.
 - [x] CLI for efficiency
 - [x] Local Persistence Option
 - [x] Soft Delete Done Items
-- [ ] Permanent Deletion
+- [x] Permanent Deletion
 - [ ] Remind Command: /r (Desktop Notifications)
 - [ ] Remote Persistence Option
 
@@ -44,10 +44,13 @@ Very convenient when your manager is rapping requirements at you during a meetin
 Usage: todo [MESSAGE] [COMMAND]
 
 Commands:
-  done  Mark one or more todo items as done
-  ls    List all todos that aren't done
-  dump  Dump all todos as json
-  help  Print this message or the help of the given subcommand(s)
+  done    Mark one or more todo items as done
+  rm      Delete a todo item, regardless of if it's done or not
+  ls      List all todos that aren't done
+  import  Read and save todos from a given file
+  dump    Dump all todos as json
+  config  Manage global configuration values
+  help    Print this message or the help of the given subcommand(s)
 
 Arguments:
   [MESSAGE]  What to do

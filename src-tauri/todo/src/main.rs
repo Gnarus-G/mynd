@@ -27,6 +27,8 @@ enum Command {
         /// Ids of the todo(s) to mark done.
         ids: Vec<String>,
     },
+    /// Delete a todo item, regardless of if it's done or not.
+    Rm(remove::RemoveArgs),
     /// List all todos that aren't done.
     Ls {},
 
@@ -116,6 +118,7 @@ fn main() -> anyhow::Result<()> {
                 db.set_all_todos(todos)?;
             }
             Command::Config(a) => a.handle()?,
+            Command::Rm(a) => a.handle()?,
         },
         None => match args.message {
             Some(message) => {
@@ -140,6 +143,37 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+mod remove {
+    use clap::Args;
+    use todo::Todos;
+
+    #[derive(Args, Debug)]
+    pub struct RemoveArgs {
+        /// Id(s) of the todo(s) to delete.
+        ids: Vec<String>,
+    }
+
+    impl RemoveArgs {
+        pub fn handle(self) -> anyhow::Result<()> {
+            let todos = Todos::load_up_with_persistor();
+
+            for id in self.ids {
+                match todos.remove(id.clone()) {
+                    Ok(_) => {
+                        eprintln!("[ERROR] deleted todo id: {}", id)
+                    }
+                    Err(err) => {
+                        eprintln!("[ERROR] failed to remove todo id: {}", id);
+                        eprintln!("[ERROR] {err:#}")
+                    }
+                }
+            }
+
+            Ok(())
+        }
+    }
 }
 
 mod manageconfigcli {

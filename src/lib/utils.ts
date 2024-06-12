@@ -1,3 +1,5 @@
+import { addToast } from "./toasts/store";
+
 type Ok<T> = {
   tag: "ok";
   isOk: true;
@@ -43,4 +45,12 @@ export function erroneous<T>(
       handlers.error(res.error);
     }
   };
+}
+
+export function handleError(e: string) {
+  addToast({
+    type: "error",
+    message: e,
+  });
+  console.error("[error] %s", e);
 }

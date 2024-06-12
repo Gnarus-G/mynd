@@ -38,6 +38,16 @@ fn remove(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult
 }
 
 #[tauri::command]
+fn delete(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
+    todos
+        .remove(id)
+        .context("failed to remove a todo")
+        .into_command_result()?;
+
+    todos.get_all().into_command_result()
+}
+
+#[tauri::command]
 fn remove_done(todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
         .remove_done()
@@ -90,6 +100,7 @@ pub fn run() {
             load,
             add,
             remove,
+            delete,
             move_up,
             move_down,
             remove_done,
