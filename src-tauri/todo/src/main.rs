@@ -1,8 +1,11 @@
-use std::os::unix::process::CommandExt;
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    os::unix::process::CommandExt,
+};
 
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
-use ls::LsArgs;
 use todo::Todos;
 
 mod config;
@@ -73,11 +76,47 @@ fn main() -> anyhow::Result<()> {
                 }
                 todos.add(&message)?;
             }
-            None => LsArgs {
-                full: true,
-                quiet: false,
+            None => {
+                let temp_filename = "/tmp/mynd-todo.td";
+                let mut file = File::options()
+                    .read(true)
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(temp_filename)
+                    .map(BufWriter::new)?;
+
+                for todo in todos.get_all()? {
+                    write!(file, "todo ")?;
+
+                    if todo.message.lines().count() > 1 {
+                        writeln!(file, "{{")?;
+                        for line in todo.message.lines() {
+                            writeln!(file, "  {}", line)?;
+                        }
+                        writeln!(file, "}}")?;
+                    } else {
+                        writeln!(file, "{}", todo.message)?;
+                    }
+
+                    writeln!(file)?;
+                }
+
+                drop(file);
+
+                let editor =
+                    std::env::var("EDITOR").context("failed to get the user's default editor")?;
+
+                let exitstatus = std::process::Command::new(&editor)
+                    .arg(temp_filename)
+                    .spawn()
+                    .context(anyhow!("failed to open editor: {}", editor))?
+                    .wait()?;
+
+                eprintln!("[INFO] {}", exitstatus);
+
+                // TODO: parse the edited file to update todo store.
             }
-            .handle()?,
         },
     }
 
