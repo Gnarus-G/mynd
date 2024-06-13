@@ -1,8 +1,8 @@
 use std::os::unix::process::CommandExt;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
-use colored::Colorize;
+use ls::LsArgs;
 use todo::Todos;
 
 mod config;
@@ -26,8 +26,9 @@ enum Command {
     },
     /// Delete a todo item, regardless of if it's done or not.
     Rm(remove::RemoveArgs),
+
     /// List all todos that aren't done.
-    Ls {},
+    Ls(ls::LsArgs),
 
     /// Launch the GUI (mynd). Assuming it's in the path.
     Gui,
@@ -59,14 +60,7 @@ fn main() -> anyhow::Result<()> {
                     eprintln!("[INFO] marked done todo id: {}", id);
                 }
             }
-            Command::Ls {} => todos
-                .get_all()?
-                .into_iter()
-                .filter(|t| !t.done)
-                .map(|t| t.message)
-                .for_each(|m| {
-                    println!("{}\n", m.yellow());
-                }),
+            Command::Ls(a) => a.handle()?,
             Command::Dump { todo } => {
                 let todos: Vec<_> = todos
                     .get_all()?
@@ -91,25 +85,77 @@ fn main() -> anyhow::Result<()> {
                 }
                 todos.add(&message)?;
             }
-            None => {
-                todos
-                    .get_all()?
-                    .into_iter()
-                    .map(|t| {
-                        if t.done {
-                            t.message.strikethrough().dimmed()
-                        } else {
-                            t.message.yellow()
-                        }
-                    })
-                    .for_each(|m| {
-                        println!("{}", m);
-                    });
+            None => LsArgs {
+                full: true,
+                quiet: false,
             }
+            .handle()?,
         },
     }
 
     Ok(())
+}
+
+mod ls {
+    use clap::Args;
+    use colored::Colorize;
+    use todo::Todos;
+
+    #[derive(Debug, Args)]
+    pub struct LsArgs {
+        /// Show todos that are done as well.
+        #[arg(short, long)]
+        pub full: bool,
+
+        /// Show only the todo messages.
+        #[arg(short, long)]
+        pub quiet: bool,
+    }
+
+    impl LsArgs {
+        pub fn handle(self) -> anyhow::Result<()> {
+            let todos = Todos::load_up_with_persistor();
+
+            todos
+                .get_all()?
+                .into_iter()
+                .filter(|t| self.full || !t.done)
+                .for_each(|t| {
+                    if !self.quiet {
+                        eprintln!("{}      {}", "id:".dimmed(), t.id.0.dimmed());
+                        eprintln!(
+                            "{}    {}",
+                            "time:".dimmed(),
+                            t.created_at.to_local_date_string().dimmed()
+                        );
+                    }
+
+                    let message = if t.done {
+                        t.message.strikethrough().dimmed()
+                    } else {
+                        t.message.yellow()
+                    };
+
+                    if !self.quiet {
+                        println!(
+                            "{} {}{}{}",
+                            "message:".dimmed(),
+                            "\"".dimmed(),
+                            message,
+                            "\"".dimmed()
+                        );
+                    } else {
+                        println!("{}", message);
+                    }
+
+                    if !self.quiet {
+                        eprintln!()
+                    }
+                });
+
+            Ok(())
+        }
+    }
 }
 
 mod remove {

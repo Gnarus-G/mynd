@@ -1,9 +1,11 @@
 use std::{
+    fmt::Display,
     sync::{Mutex, MutexGuard},
     usize,
 };
 
 use anyhow::anyhow;
+use chrono::{Local, TimeZone};
 use collection::array::TodoArrayList;
 use collection::TodoCollection;
 use persist::{ActualTodosDB, TodosDatabase};
@@ -36,6 +38,21 @@ impl From<&str> for TodoID {
 #[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone)]
 pub struct TodoTime(chrono::DateTime<chrono::Utc>);
 
+impl TodoTime {
+    pub fn to_local_date_string(&self) -> String {
+        Local
+            .from_utc_datetime(&self.0.naive_utc())
+            .format("%m/%d/%Y %H:%M")
+            .to_string()
+    }
+}
+
+impl Display for TodoTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl Default for TodoTime {
     fn default() -> Self {
         Self(chrono::Utc::now())
@@ -50,9 +67,9 @@ impl TodoTime {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Todo {
-    id: TodoID,
+    pub id: TodoID,
     pub message: String,
-    created_at: TodoTime,
+    pub created_at: TodoTime,
     pub done: bool,
 }
 
