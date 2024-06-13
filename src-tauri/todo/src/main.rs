@@ -37,11 +37,7 @@ enum Command {
     Import(import::ImportArgs),
 
     /// Dump all todos as json.
-    Dump {
-        /// Only dump undone todo items
-        #[arg(short = 't')]
-        todo: bool,
-    },
+    Dump(dump::DumpArgs),
 
     /// Manage global configuration values.
     Config(manageconfigcli::ConfigArgs),
@@ -61,15 +57,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             Command::Ls(a) => a.handle()?,
-            Command::Dump { todo } => {
-                let todos: Vec<_> = todos
-                    .get_all()?
-                    .into_iter()
-                    .filter(|t| !todo || !t.done)
-                    .collect();
-
-                println!("{}", serde_json::to_string(&todos)?);
-            }
+            Command::Dump(a) => a.handle()?,
             Command::Import(a) => a.handle()?,
             Command::Config(a) => a.handle()?,
             Command::Rm(a) => a.handle()?,
@@ -244,6 +232,34 @@ mod import {
             todos.extend(imported_todos);
 
             db.set_all_todos(todos)?;
+
+            Ok(())
+        }
+    }
+}
+
+mod dump {
+    use clap::Args;
+    use todo::Todos;
+
+    #[derive(Debug, Args)]
+    pub struct DumpArgs {
+        /// Only dump undone todo items
+        #[arg(short = 't')]
+        todo: bool,
+    }
+
+    impl DumpArgs {
+        pub fn handle(self) -> anyhow::Result<()> {
+            let todos = Todos::load_up_with_persistor();
+
+            let todos: Vec<_> = todos
+                .get_all()?
+                .into_iter()
+                .filter(|t| !self.todo || !t.done)
+                .collect();
+
+            println!("{}", serde_json::to_string(&todos)?);
 
             Ok(())
         }
