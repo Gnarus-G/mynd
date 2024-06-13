@@ -85,6 +85,9 @@ fn main() -> anyhow::Result<()> {
         },
         None => match args.message {
             Some(message) => {
+                if message.is_empty() {
+                    return Err(anyhow!("no sense in an empty todo message"));
+                }
                 todos.add(&message)?;
             }
             None => {
