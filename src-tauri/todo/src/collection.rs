@@ -60,10 +60,7 @@ pub mod array {
             let todo = Todo::new(message.to_string());
 
             if self.list.iter().any(|i| i.id == todo.id) {
-                return Err(anyhow!(
-                    "[INFO] already noted this todo message: '{}'",
-                    message
-                ));
+                return Err(anyhow!("already noted this todo message: '{}'", message));
             }
 
             self.list.push(todo.clone());

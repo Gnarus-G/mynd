@@ -55,7 +55,8 @@ fn main() -> anyhow::Result<()> {
         Some(c) => match c {
             Command::Done { ids } => {
                 for id in ids {
-                    todos.mark_done(id)?
+                    todos.mark_done(id.clone())?;
+                    eprintln!("[INFO] marked done todo id: {}", id);
                 }
             }
             Command::Ls {} => todos
@@ -128,7 +129,7 @@ mod remove {
             for id in self.ids {
                 match todos.remove(id.clone()) {
                     Ok(_) => {
-                        eprintln!("[ERROR] deleted todo id: {}", id)
+                        eprintln!("[INFO] deleted todo id: {}", id)
                     }
                     Err(err) => {
                         eprintln!("[ERROR] failed to remove todo id: {}", id);
