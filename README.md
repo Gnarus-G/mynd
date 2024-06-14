@@ -76,6 +76,11 @@ Options:
   -V, --version  Print version
 ```
 
+## Syntax Highlighting (Neovim)
+
+There is a treesitter grammar for the `todo` syntax.
+To setup syntax Highlighting in Neovim, see [tree-sitter-todolang](https://github.com/Gnarus-G/tree-sitter-todolang)
+
 ## Dev References
 
 https://github.com/tauri-apps/tauri-docs/blob/8cdc0505ffb9e78be768a0216bd91980306206a5/docs/guides/distribution/sign-android.md
