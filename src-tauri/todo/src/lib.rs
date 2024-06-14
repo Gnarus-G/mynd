@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 mod collection;
 mod config;
+mod lang;
 pub mod persist;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone)]
