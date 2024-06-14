@@ -14,7 +14,15 @@ cuid2 = "0.1.0"
 colored = "2.0.1"
 sha256 = "1.5.0"
 anyhow = "1.0.86"
+thiserror = "1.0.61"
 
 [dependencies.confy]
 features = ["ron_conf"]
 default-features = false
+
+[dev-dependencies]
+insta = "1.39.0"
+
+[profile.dev.package]
+insta.opt-level = 3
+similar.opt-level = 3
