@@ -72,10 +72,6 @@ pub mod lexer {
             }
         }
 
-        pub fn input(&self) -> &'src str {
-            std::str::from_utf8(self.src).expect("input should only contain utf-8 characters")
-        }
-
         fn input_slice(&self, range: (u32, u32)) -> &'src str {
             let (start, end) = (range.0 as usize, range.1 as usize);
 
@@ -142,13 +138,7 @@ pub mod lexer {
 
             let ch = match self.ch() {
                 Some(ch) => ch,
-                None => {
-                    return Token {
-                        kind: Eof,
-                        start: self.position,
-                        text: "",
-                    }
-                }
+                None => return Token::new(Eof, "", self.position),
             };
 
             let token = match ch {
@@ -170,11 +160,7 @@ pub mod lexer {
             use TokenKind::*;
 
             match string {
-                "todo" => Token {
-                    kind: TodoKeyword,
-                    start: location,
-                    text: string,
-                },
+                "todo" => Token::new(TodoKeyword, string, location),
                 _ => self.string(Some(location)),
             }
         }
@@ -187,11 +173,7 @@ pub mod lexer {
             self.step();
             let string = self.input_slice((start_pos.value, e));
 
-            Token {
-                kind: TokenKind::String,
-                start: start_pos,
-                text: string,
-            }
+            Token::new(TokenKind::String, string, start_pos)
         }
 
         fn multiline_string(&mut self) -> Token<'src> {
@@ -205,16 +187,14 @@ pub mod lexer {
 
             let string = self.input_slice((s, e));
 
-            Token {
-                kind: TokenKind::MultilineString,
-                start: start_pos,
-                text: string,
-            }
+            Token::new(TokenKind::MultilineString, string, start_pos)
         }
     }
 
     #[cfg(test)]
     mod tests {
+        use insta::assert_debug_snapshot;
+
         use super::*;
         use crate::lang::lexer;
 
@@ -323,12 +303,152 @@ todo {
                 )
             );
         }
+
+        impl<'src> Iterator for lexer::Lexer<'src> {
+            type Item = Token<'src>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let token = self.next_token();
+                if token.kind == TokenKind::Eof {
+                    return None;
+                }
+
+                return Some(token);
+            }
+        }
+
+        #[test]
+        fn lexes_mix() {
+            let tokens: Vec<_> = lexer::Lexer::new(
+                r#"
+todo testing on this
+
+todo {
+    testing multiple
+    lines of text
+}
+
+todo run this test
+
+todo {
+    run this test with a single line toodo
+    as well as this multiline todo
+    blah blah
+}
+
+todo todo
+todo"#,
+            )
+            .collect();
+
+            assert_debug_snapshot!(tokens, @r###"
+            [
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 1,
+                        line: 1,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: String,
+                    text: "testing on this",
+                    start: Position {
+                        value: 6,
+                        line: 1,
+                        col: 5,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 23,
+                        line: 3,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: MultilineString,
+                    text: "\n    testing multiple\n    lines of text\n",
+                    start: Position {
+                        value: 28,
+                        line: 3,
+                        col: 5,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 72,
+                        line: 8,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: String,
+                    text: "run this test",
+                    start: Position {
+                        value: 77,
+                        line: 8,
+                        col: 5,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 92,
+                        line: 10,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: MultilineString,
+                    text: "\n    run this test with a single line toodo\n    as well as this multiline todo\n    blah blah\n",
+                    start: Position {
+                        value: 97,
+                        line: 10,
+                        col: 5,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 194,
+                        line: 16,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 199,
+                        line: 16,
+                        col: 5,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 204,
+                        line: 17,
+                        col: 0,
+                    },
+                },
+            ]
+            "###)
+        }
     }
 }
 
 pub mod parser {
-
-    use std::str::FromStr;
 
     use super::lexer::{self, Token, TokenKind};
 
@@ -350,11 +470,9 @@ pub mod parser {
         }
     }
 
-    impl FromStr for ast::Text {
-        type Err = ParseError;
-
-        fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
-            Parser::new(lexer::Lexer::new(s)).parse()
+    impl<'src> From<&'src str> for ast::Text {
+        fn from(value: &'src str) -> Self {
+            Parser::new(lexer::Lexer::new(value)).parse()
         }
     }
 
@@ -382,21 +500,21 @@ pub mod parser {
             self.peeked.get_or_insert_with(|| self.lexer.next_token())
         }
 
-        pub fn parse(&mut self) -> Result<ast::Text> {
-            let mut items = vec![];
+        pub fn parse(&mut self) -> ast::Text {
+            let mut items: Vec<Result<ast::Item>> = vec![];
 
             let mut token = self.next_token();
 
             if token.kind == TokenKind::Eof {
-                return Err(ParseError::UnexpectedEof);
+                items.push(Err(ParseError::UnexpectedEof));
+                return ast::Text { items };
             }
 
             while token.kind != TokenKind::Eof {
+                dbg!(&token, "top level");
                 let item = match token.kind {
                     TokenKind::TodoKeyword => self.parse_todo(),
-                    TokenKind::String | TokenKind::MultilineString => {
-                        return Err(ParseError::ExtraText)
-                    }
+                    TokenKind::String | TokenKind::MultilineString => Err(ParseError::ExtraText),
                     TokenKind::Eof => {
                         unreachable!("top level parse loop [should]only runs when token is not eof")
                     }
@@ -404,27 +522,30 @@ pub mod parser {
 
                 items.push(item);
 
+                dbg!(&token, "top level later");
+
                 token = self.next_token();
             }
 
-            return Ok(ast::Text { items });
+            return ast::Text { items };
         }
 
         fn parse_todo(&mut self) -> Result<ast::Item> {
-            let mut token = self.next_token();
+            let token = self.next_token();
             match token.kind {
                 TokenKind::TodoKeyword => Err(ParseError::UnexpectedToken {
                     expected: TokenKind::String,
                     found: TokenKind::TodoKeyword,
                 }),
                 TokenKind::String => {
-                    token = self.next_token();
+                    dbg!(&token, "single");
                     Ok(ast::Item::OneLine(ast::TodoItem {
                         message: token.text.to_string(),
                     }))
                 }
                 TokenKind::MultilineString => {
-                    token = self.next_token();
+                    dbg!(&token, "multi");
+
                     let message = token
                         .text
                         .to_string()
@@ -459,45 +580,168 @@ pub mod parser {
 
     #[cfg(test)]
     mod tests {
-        use std::str::FromStr;
-
         use insta::assert_debug_snapshot;
+
+        use crate::lang::lexer;
 
         use super::ast;
 
         #[test]
         fn parses_todos_singles() {
-            let src = "todo run this test";
+            let src = "todo run this test\ntodo run this as well\ntodo and this";
 
-            let text = ast::Text::from_str(src).unwrap();
+            let tokens: Vec<_> = lexer::Lexer::new(src).collect();
 
-            assert_debug_snapshot!(text, @"");
+            assert_debug_snapshot!(tokens, @r###"
+            [
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 0,
+                        line: 0,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: String,
+                    text: "run this test",
+                    start: Position {
+                        value: 5,
+                        line: 0,
+                        col: 5,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 19,
+                        line: 1,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: String,
+                    text: "run this as well",
+                    start: Position {
+                        value: 24,
+                        line: 1,
+                        col: 5,
+                    },
+                },
+                Token {
+                    kind: TodoKeyword,
+                    text: "todo",
+                    start: Position {
+                        value: 41,
+                        line: 2,
+                        col: 0,
+                    },
+                },
+                Token {
+                    kind: String,
+                    text: "and this",
+                    start: Position {
+                        value: 46,
+                        line: 2,
+                        col: 5,
+                    },
+                },
+            ]
+            "###);
+
+            let text = ast::Text::from(src);
+
+            assert_debug_snapshot!(text, @r###"
+            Text {
+                items: [
+                    Ok(
+                        OneLine(
+                            TodoItem {
+                                message: "run this test",
+                            },
+                        ),
+                    ),
+                    Ok(
+                        OneLine(
+                            TodoItem {
+                                message: "run this as well",
+                            },
+                        ),
+                    ),
+                    Ok(
+                        OneLine(
+                            TodoItem {
+                                message: "and this",
+                            },
+                        ),
+                    ),
+                ],
+            }
+            "###);
         }
 
         #[test]
         fn parses_todos_mix() {
             let src = r#"todo run this test
 
-todo {
-    run this test with a single line toodo
-    as well as this multiline todo
-    blah blah
-}"#;
+    todo {
+        run this test with a single line toodo
+        as well as this multiline todo
+        blah blah
+    }"#;
 
-            let text = ast::Text::from_str(src).unwrap();
+            let text = ast::Text::from(src);
 
-            assert_debug_snapshot!(text, @"");
+            assert_debug_snapshot!(text, @r###"
+            Text {
+                items: [
+                    Ok(
+                        OneLine(
+                            TodoItem {
+                                message: "run this test",
+                            },
+                        ),
+                    ),
+                    Ok(
+                        Multiline(
+                            TodoItem {
+                                message: "run this test with a single line toodo\nas well as this multiline todo\nblah blah",
+                            },
+                        ),
+                    ),
+                ],
+            }
+            "###);
         }
 
         #[test]
         fn parses_todos_errors() {
             let src = r#"run this test
-todo todo
-todo"#;
+    todo todo
+    todo"#;
 
-            let text = ast::Text::from_str(src).unwrap();
+            let text = ast::Text::from(src);
 
-            assert_debug_snapshot!(text, @"");
+            assert_debug_snapshot!(text, @r###"
+            Text {
+                items: [
+                    Err(
+                        ExtraText,
+                    ),
+                    Err(
+                        UnexpectedToken {
+                            expected: String,
+                            found: TodoKeyword,
+                        },
+                    ),
+                    Err(
+                        UnexpectedEof,
+                    ),
+                ],
+            }
+            "###);
         }
     }
 }

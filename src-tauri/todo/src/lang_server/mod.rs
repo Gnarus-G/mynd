@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use anyhow::Context;
 use todo::persist::ActualTodosDB;
 use todo::Todos;
@@ -23,15 +21,7 @@ struct ChangedDocumentItem {
 
 impl Backend {
     async fn on_change(&self, params: ChangedDocumentItem) {
-        let text = match ast::Text::from_str(&params.text) {
-            Ok(t) => t,
-            Err(err) => {
-                return self
-                    .client
-                    .log_message(MessageType::ERROR, format!("{err}"))
-                    .await
-            }
-        };
+        let text = ast::Text::from(params.text.as_str());
 
         let mut diags = vec![];
 
