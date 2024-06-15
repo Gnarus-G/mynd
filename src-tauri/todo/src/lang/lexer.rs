@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use super::{CharaterTest, Position};
+use super::{CharaterTest, Position, Span};
 
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
@@ -25,17 +25,18 @@ impl Display for TokenKind {
 pub struct Token<'src> {
     pub kind: TokenKind,
     pub text: &'src str,
-    pub start: Position,
+    pub span: Span,
 }
 
 impl<'src> Token<'src> {
-    pub fn new(kind: TokenKind, text: &'src str, start: Position) -> Self {
-        Token { kind, text, start }
+    pub fn new(kind: TokenKind, text: &'src str, span: Span) -> Self {
+        Token { kind, text, span }
     }
 }
 
 pub struct Lexer<'src> {
     position: Position,
+    eof_pos: Position,
     src: &'src [u8],
 }
 
@@ -43,6 +44,7 @@ impl<'src> Lexer<'src> {
     pub fn new(src: &'src str) -> Self {
         Lexer {
             position: Position::default(),
+            eof_pos: Position::default(),
             src: src.as_bytes(),
         }
     }
@@ -66,9 +68,10 @@ impl<'src> Lexer<'src> {
     }
 
     fn step(&mut self) {
-        if self.peek_char().is_some() {
-            self.check_and_bump_new_line();
+        if self.peek_char().is_none() {
+            self.eof_pos = self.position;
         }
+        self.check_and_bump_new_line();
         self.position.value += 1;
     }
 
@@ -113,7 +116,9 @@ impl<'src> Lexer<'src> {
 
         let ch = match self.ch() {
             Some(ch) => ch,
-            None => return Token::new(Eof, "", self.position),
+            None => {
+                return Token::new(Eof, "", self.eof_pos.spanning_to(self.eof_pos));
+            }
         };
 
         let token = match ch {
@@ -135,7 +140,7 @@ impl<'src> Lexer<'src> {
         use TokenKind::*;
 
         match string {
-            "todo" => Token::new(TodoKeyword, string, location),
+            "todo" => Token::new(TodoKeyword, string, location.spanning_to(self.position)),
             _ => self.string(Some(location)),
         }
     }
@@ -145,10 +150,13 @@ impl<'src> Lexer<'src> {
 
         let (_, e) = self.read_while(|&c| c != b'\n');
 
-        self.step();
         let string = self.input_slice((start_pos.value, e));
 
-        Token::new(TokenKind::String, string, start_pos)
+        Token::new(
+            TokenKind::String,
+            string,
+            start_pos.spanning_to(self.position),
+        )
     }
 
     fn multiline_string(&mut self) -> Token<'src> {
@@ -162,7 +170,11 @@ impl<'src> Lexer<'src> {
 
         let string = self.input_slice((s, e));
 
-        Token::new(TokenKind::MultilineString, string, start_pos)
+        Token::new(
+            TokenKind::MultilineString,
+            string,
+            start_pos.spanning_to(self.position),
+        )
     }
 }
 
@@ -181,17 +193,35 @@ mod tests {
 
         assert_eq!(
             lexer.next_token(),
-            Token::new(TokenKind::TodoKeyword, "todo", Position::default())
+            Token::new(
+                TokenKind::TodoKeyword,
+                "todo",
+                Span {
+                    start: Position::default(),
+                    end: Position {
+                        value: 3,
+                        line: 0,
+                        col: 3
+                    }
+                }
+            )
         );
         assert_eq!(
             lexer.next_token(),
             Token::new(
                 TokenKind::String,
                 "run this test",
-                Position {
-                    value: 5,
-                    line: 0,
-                    col: 5
+                Span {
+                    start: Position {
+                        value: 5,
+                        line: 0,
+                        col: 5
+                    },
+                    end: Position {
+                        value: 17,
+                        line: 0,
+                        col: 17
+                    }
                 }
             )
         );
@@ -201,10 +231,17 @@ mod tests {
             Token::new(
                 TokenKind::Eof,
                 "",
-                Position {
-                    value: 19,
-                    line: 0,
-                    col: 17
+                Span {
+                    start: Position {
+                        value: 17,
+                        line: 0,
+                        col: 17
+                    },
+                    end: Position {
+                        value: 17,
+                        line: 0,
+                        col: 17
+                    }
                 }
             )
         );
@@ -227,10 +264,17 @@ todo {
             Token::new(
                 TokenKind::TodoKeyword,
                 "todo",
-                Position {
-                    line: 1,
-                    value: 1,
-                    col: 0
+                Span {
+                    start: Position {
+                        line: 1,
+                        value: 1,
+                        col: 0
+                    },
+                    end: Position {
+                        line: 1,
+                        value: 4,
+                        col: 3
+                    }
                 }
             )
         );
@@ -240,10 +284,17 @@ todo {
             Token::new(
                 TokenKind::String,
                 "run this test",
-                Position {
-                    value: 6,
-                    line: 1,
-                    col: 5
+                Span {
+                    start: Position {
+                        value: 6,
+                        line: 1,
+                        col: 5
+                    },
+                    end: Position {
+                        value: 18,
+                        line: 1,
+                        col: 17
+                    }
                 }
             )
         );
@@ -253,10 +304,17 @@ todo {
             Token::new(
                 TokenKind::TodoKeyword,
                 "todo",
-                Position {
-                    line: 2,
-                    value: 20,
-                    col: 0
+                Span {
+                    start: Position {
+                        line: 2,
+                        value: 20,
+                        col: 0
+                    },
+                    end: Position {
+                        line: 2,
+                        value: 23,
+                        col: 3
+                    }
                 }
             )
         );
@@ -270,10 +328,17 @@ todo {
     as well as this multiline todo
     blah blah
 "#,
-                Position {
-                    line: 2,
-                    value: 25,
-                    col: 5
+                Span {
+                    start: Position {
+                        line: 2,
+                        value: 25,
+                        col: 5
+                    },
+                    end: Position {
+                        line: 6,
+                        value: 119,
+                        col: 0
+                    }
                 }
             )
         );
@@ -317,107 +382,249 @@ todo"#,
         .collect();
 
         assert_debug_snapshot!(tokens, @r###"
-            [
-                Token {
-                    kind: TodoKeyword,
-                    text: "todo",
+        [
+            Token {
+                kind: TodoKeyword,
+                text: "todo",
+                span: Span {
                     start: Position {
                         value: 1,
                         line: 1,
                         col: 0,
                     },
+                    end: Position {
+                        value: 4,
+                        line: 1,
+                        col: 3,
+                    },
                 },
-                Token {
-                    kind: String,
-                    text: "testing on this",
+            },
+            Token {
+                kind: String,
+                text: "testing on this",
+                span: Span {
                     start: Position {
                         value: 6,
                         line: 1,
                         col: 5,
                     },
+                    end: Position {
+                        value: 20,
+                        line: 1,
+                        col: 19,
+                    },
                 },
-                Token {
-                    kind: TodoKeyword,
-                    text: "todo",
+            },
+            Token {
+                kind: TodoKeyword,
+                text: "todo",
+                span: Span {
                     start: Position {
                         value: 23,
                         line: 3,
                         col: 0,
                     },
+                    end: Position {
+                        value: 26,
+                        line: 3,
+                        col: 3,
+                    },
                 },
-                Token {
-                    kind: MultilineString,
-                    text: "\n    testing multiple\n    lines of text\n",
+            },
+            Token {
+                kind: MultilineString,
+                text: "\n    testing multiple\n    lines of text\n",
+                span: Span {
                     start: Position {
                         value: 28,
                         line: 3,
                         col: 5,
                     },
+                    end: Position {
+                        value: 69,
+                        line: 6,
+                        col: 0,
+                    },
                 },
-                Token {
-                    kind: TodoKeyword,
-                    text: "todo",
+            },
+            Token {
+                kind: TodoKeyword,
+                text: "todo",
+                span: Span {
                     start: Position {
                         value: 72,
                         line: 8,
                         col: 0,
                     },
+                    end: Position {
+                        value: 75,
+                        line: 8,
+                        col: 3,
+                    },
                 },
-                Token {
-                    kind: String,
-                    text: "run this test",
+            },
+            Token {
+                kind: String,
+                text: "run this test",
+                span: Span {
                     start: Position {
                         value: 77,
                         line: 8,
                         col: 5,
                     },
+                    end: Position {
+                        value: 89,
+                        line: 8,
+                        col: 17,
+                    },
                 },
-                Token {
-                    kind: TodoKeyword,
-                    text: "todo",
+            },
+            Token {
+                kind: TodoKeyword,
+                text: "todo",
+                span: Span {
                     start: Position {
                         value: 92,
                         line: 10,
                         col: 0,
                     },
+                    end: Position {
+                        value: 95,
+                        line: 10,
+                        col: 3,
+                    },
                 },
-                Token {
-                    kind: MultilineString,
-                    text: "\n    run this test with a single line toodo\n    as well as this multiline todo\n    blah blah\n",
+            },
+            Token {
+                kind: MultilineString,
+                text: "\n    run this test with a single line toodo\n    as well as this multiline todo\n    blah blah\n",
+                span: Span {
                     start: Position {
                         value: 97,
                         line: 10,
                         col: 5,
                     },
+                    end: Position {
+                        value: 191,
+                        line: 14,
+                        col: 0,
+                    },
                 },
-                Token {
-                    kind: TodoKeyword,
-                    text: "todo",
+            },
+            Token {
+                kind: TodoKeyword,
+                text: "todo",
+                span: Span {
                     start: Position {
                         value: 194,
                         line: 16,
                         col: 0,
                     },
+                    end: Position {
+                        value: 197,
+                        line: 16,
+                        col: 3,
+                    },
                 },
-                Token {
-                    kind: TodoKeyword,
-                    text: "todo",
+            },
+            Token {
+                kind: TodoKeyword,
+                text: "todo",
+                span: Span {
                     start: Position {
                         value: 199,
                         line: 16,
                         col: 5,
                     },
+                    end: Position {
+                        value: 202,
+                        line: 16,
+                        col: 8,
+                    },
                 },
-                Token {
-                    kind: TodoKeyword,
-                    text: "todo",
+            },
+            Token {
+                kind: TodoKeyword,
+                text: "todo",
+                span: Span {
                     start: Position {
                         value: 204,
                         line: 17,
                         col: 0,
                     },
+                    end: Position {
+                        value: 207,
+                        line: 17,
+                        col: 3,
+                    },
                 },
-            ]
-            "###)
+            },
+        ]
+        "###)
+    }
+
+    #[test]
+    fn lex_eof() {
+        let src = "todo";
+
+        let mut lexer = Lexer::new(src);
+
+        assert_eq!(
+            lexer.next_token(),
+            Token::new(
+                TokenKind::TodoKeyword,
+                "todo",
+                Span {
+                    start: Position::default(),
+                    end: Position {
+                        value: 3,
+                        line: 0,
+                        col: 3
+                    }
+                }
+            )
+        );
+
+        assert_eq!(
+            lexer.next_token(),
+            Token::new(
+                TokenKind::Eof,
+                "",
+                Span {
+                    start: Position {
+                        value: 3,
+                        line: 0,
+                        col: 3
+                    },
+
+                    end: Position {
+                        value: 3,
+                        line: 0,
+                        col: 3
+                    }
+                }
+            )
+        );
+
+        // assert_eq!(
+        //     lexer.next_token(),
+        //     Token::new(
+        //         TokenKind::Eof,
+        //         "",
+        //         Span {
+        //             start: Position {
+        //                 value: 3,
+        //                 line: 0,
+        //                 col: 3
+        //             },
+        //
+        //             end: Position {
+        //                 value: 3,
+        //                 line: 0,
+        //                 col: 3
+        //             }
+        //         }
+        //     )
+        // )
     }
 }

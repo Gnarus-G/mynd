@@ -16,23 +16,23 @@ mod config;
 mod lang;
 pub mod persist;
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone)]
-pub struct TodoID(pub String);
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Clone, Hash)]
+pub struct TodoID(pub Box<str>);
 impl TodoID {
     fn hash_message(message: &str) -> TodoID {
-        TodoID(sha256::digest(message))
+        TodoID(sha256::digest(message).into())
     }
 }
 
 impl From<String> for TodoID {
     fn from(value: String) -> Self {
-        Self(value)
+        Self(value.into())
     }
 }
 
 impl From<&str> for TodoID {
     fn from(value: &str) -> Self {
-        Self(value.to_string())
+        Self(value.into())
     }
 }
 
@@ -134,7 +134,7 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(todo)
     }
 
-    pub fn remove(&self, id: String) -> anyhow::Result<()> {
+    pub fn remove(&self, id: &str) -> anyhow::Result<()> {
         self.inner_list()?.remove(id)?;
 
         eprintln!("[INFO] removed a todo item");
@@ -175,7 +175,7 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(())
     }
 
-    pub fn move_below(&self, id: String, target_id: String) -> anyhow::Result<()> {
+    pub fn move_below(&self, id: &str, target_id: &str) -> anyhow::Result<()> {
         self.inner_list()?.move_below(id, target_id)?;
 
         eprintln!("[INFO] move a todo item below another");
@@ -236,7 +236,7 @@ mod tests {
         let id = todos.add("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target).unwrap();
+        todos.move_below(&id, &target).unwrap();
 
         let messages = todos
             .get_all()
@@ -268,7 +268,7 @@ mod tests {
         let target = todos.add("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target).unwrap();
+        todos.move_below(&id, &target).unwrap();
 
         let messages = todos
             .get_all()
@@ -300,7 +300,7 @@ mod tests {
         let id = todos.add("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target).unwrap();
+        todos.move_below(&id, &target).unwrap();
 
         let messages = todos
             .get_all()

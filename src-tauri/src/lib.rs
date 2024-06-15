@@ -40,7 +40,7 @@ fn remove(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult
 #[tauri::command]
 fn delete(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
-        .remove(id)
+        .remove(&id)
         .context("failed to remove a todo")
         .into_command_result()?;
 
@@ -84,7 +84,7 @@ fn move_below(
     todos: tauri::State<'_, TodosState>,
 ) -> TodosCommandResult {
     todos
-        .move_below(id, target_id)
+        .move_below(&id, &target_id)
         .context("failed to move a todo below another")
         .into_command_result()?;
 

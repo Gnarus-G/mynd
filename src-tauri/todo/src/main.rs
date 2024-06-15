@@ -203,7 +203,7 @@ mod remove {
             let todos = Todos::load_up_with_persistor();
 
             for id in self.ids {
-                match todos.remove(id.clone()) {
+                match todos.remove(&id) {
                     Ok(_) => {
                         eprintln!("[INFO] deleted todo id: {}", id)
                     }

@@ -3778,6 +3778,7 @@ dependencies = [
  "colored",
  "confy",
  "cuid2",
+ "dashmap",
  "insta",
  "serde",
  "serde_json",

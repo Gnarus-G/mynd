@@ -1,16 +1,20 @@
 use anyhow::Context;
+use dashmap::DashSet;
 use todo::persist::ActualTodosDB;
-use todo::Todos;
+use todo::{TodoID, Todos};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use crate::lang;
 use crate::lang::parser::ast;
 
 #[derive(Debug)]
 struct Backend {
     client: Client,
     todos: Todos<ActualTodosDB>,
+    /// To remember todo in the edit buffer by their start byte position
+    previous: DashSet<TodoID>,
 }
 
 struct ChangedDocumentItem {
@@ -19,11 +23,51 @@ struct ChangedDocumentItem {
     pub text: String,
 }
 
+impl lang::Position {
+    fn into_lsp_pos(self) -> Position {
+        Position {
+            line: self.line,
+            character: self.col,
+        }
+    }
+}
+
+impl lang::Span {
+    fn into_lsp_range(self) -> Range {
+        Range {
+            start: self.start.into_lsp_pos(),
+            end: self.end.into_lsp_pos(),
+        }
+    }
+}
+
+impl lang::parser::ParseError {
+    fn span(&self) -> &lang::Span {
+        match self {
+            lang::parser::ParseError::ExtraText(s) => s,
+            lang::parser::ParseError::UnexpectedEof(s) => s,
+            lang::parser::ParseError::UnexpectedToken { span, .. } => span,
+        }
+    }
+}
+
 impl Backend {
     async fn on_change(&self, params: ChangedDocumentItem) {
         let text = ast::Text::from(params.text.as_str());
 
         let mut diags = vec![];
+
+        // Remove old todos from persistence store
+        for todoid in self.previous.iter() {
+            match self.todos.remove(&todoid.0) {
+                Ok(_) => {}
+                Err(err) => {
+                    self.client
+                        .log_message(MessageType::ERROR, format!("{err}"))
+                        .await
+                }
+            };
+        }
 
         for maybeitem in text.items {
             match maybeitem {
@@ -34,16 +78,28 @@ impl Backend {
                     };
 
                     match self.todos.add(&todo.message) {
-                        Ok(_) => {}
+                        Ok(todo) => {
+                            self.previous.insert(todo.id);
+                        }
                         Err(err) => {
-                            return self
-                                .client
+                            self.client
                                 .log_message(MessageType::ERROR, format!("{err}"))
                                 .await
                         }
                     };
                 }
-                Err(err) => diags.push(Diagnostic::new_simple(Range::default(), err.to_string())),
+                Err(err) => {
+                    diags.push(Diagnostic::new_simple(
+                        err.span().into_lsp_range(),
+                        err.to_string(),
+                    ));
+                    self.client
+                        .log_message(
+                            MessageType::WARNING,
+                            format!("[Diagnostic] {err}: {:?}", err.span()),
+                        )
+                        .await;
+                }
             }
         }
 
@@ -138,6 +194,7 @@ async fn run() {
     let (service, socket) = LspService::new(|client| Backend {
         client,
         todos: Todos::load_up_with_persistor(),
+        previous: DashSet::new(),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

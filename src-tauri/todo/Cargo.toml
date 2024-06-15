@@ -17,6 +17,7 @@ anyhow = "1.0.86"
 thiserror = "1.0.61"
 tower-lsp = "0.20.0"
 tokio = { version = "1.38.0", features = ["io-std", "rt"] }
+dashmap = "5.5.3"
 
 [dependencies.confy]
 version = "0.6.1"

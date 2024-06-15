@@ -6,6 +6,18 @@ pub struct Position {
     pub col: u32,
 }
 
+#[derive(Debug, PartialEq, Default, Clone, Copy)]
+pub struct Span {
+    pub start: Position,
+    pub end: Position,
+}
+
+impl Position {
+    fn spanning_to(&self, end: Position) -> Span {
+        Span { start: *self, end }
+    }
+}
+
 trait CharaterTest {
     fn passes<P: Fn(&u8) -> bool>(&self, predicate: P) -> bool;
 }
@@ -23,12 +35,16 @@ pub mod lexer;
 
 pub mod parser {
 
-    use super::lexer::{self, Token, TokenKind};
+    use super::{
+        lexer::{self, Token, TokenKind},
+        Span,
+    };
 
     pub mod ast {
         #[derive(Debug)]
         pub struct TodoItem {
             pub message: String,
+            pub span: super::Span,
         }
 
         #[derive(Debug)]
@@ -75,14 +91,16 @@ pub mod parser {
             let mut token = self.next_token();
 
             if token.kind == TokenKind::Eof {
-                items.push(Err(ParseError::UnexpectedEof));
+                items.push(Err(ParseError::UnexpectedEof(token.span)));
                 return ast::Text { items };
             }
 
             while token.kind != TokenKind::Eof {
                 let item = match token.kind {
                     TokenKind::TodoKeyword => self.parse_todo(),
-                    TokenKind::String | TokenKind::MultilineString => Err(ParseError::ExtraText),
+                    TokenKind::String | TokenKind::MultilineString => {
+                        Err(ParseError::ExtraText(token.span))
+                    }
                     TokenKind::Eof => {
                         unreachable!("top level parse loop [should]only runs when token is not eof")
                     }
@@ -102,9 +120,11 @@ pub mod parser {
                 TokenKind::TodoKeyword => Err(ParseError::UnexpectedToken {
                     expected: TokenKind::String,
                     found: TokenKind::TodoKeyword,
+                    span: token.span,
                 }),
                 TokenKind::String => Ok(ast::Item::OneLine(ast::TodoItem {
                     message: token.text.to_string(),
+                    span: token.span,
                 })),
                 TokenKind::MultilineString => {
                     let message = token
@@ -117,9 +137,12 @@ pub mod parser {
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    Ok(ast::Item::Multiline(ast::TodoItem { message }))
+                    Ok(ast::Item::Multiline(ast::TodoItem {
+                        message,
+                        span: token.span,
+                    }))
                 }
-                TokenKind::Eof => Err(ParseError::UnexpectedEof),
+                TokenKind::Eof => Err(ParseError::UnexpectedEof(token.span)),
             }
         }
     }
@@ -129,13 +152,14 @@ pub mod parser {
     #[derive(thiserror::Error, Debug)]
     pub enum ParseError {
         #[error("dangling text; without todo")]
-        ExtraText,
+        ExtraText(Span),
         #[error("reached an unexpected end of file")]
-        UnexpectedEof,
+        UnexpectedEof(Span),
         #[error("expected a {expected}, but found a {found}")]
         UnexpectedToken {
             expected: TokenKind,
             found: TokenKind,
+            span: Span,
         },
     }
 
@@ -158,55 +182,97 @@ pub mod parser {
                 Token {
                     kind: TodoKeyword,
                     text: "todo",
-                    start: Position {
-                        value: 0,
-                        line: 0,
-                        col: 0,
+                    span: Span {
+                        start: Position {
+                            value: 0,
+                            line: 0,
+                            col: 0,
+                        },
+                        end: Position {
+                            value: 3,
+                            line: 0,
+                            col: 3,
+                        },
                     },
                 },
                 Token {
                     kind: String,
                     text: "run this test",
-                    start: Position {
-                        value: 5,
-                        line: 0,
-                        col: 5,
+                    span: Span {
+                        start: Position {
+                            value: 5,
+                            line: 0,
+                            col: 5,
+                        },
+                        end: Position {
+                            value: 17,
+                            line: 0,
+                            col: 17,
+                        },
                     },
                 },
                 Token {
                     kind: TodoKeyword,
                     text: "todo",
-                    start: Position {
-                        value: 19,
-                        line: 1,
-                        col: 0,
+                    span: Span {
+                        start: Position {
+                            value: 19,
+                            line: 1,
+                            col: 0,
+                        },
+                        end: Position {
+                            value: 22,
+                            line: 1,
+                            col: 3,
+                        },
                     },
                 },
                 Token {
                     kind: String,
                     text: "run this as well",
-                    start: Position {
-                        value: 24,
-                        line: 1,
-                        col: 5,
+                    span: Span {
+                        start: Position {
+                            value: 24,
+                            line: 1,
+                            col: 5,
+                        },
+                        end: Position {
+                            value: 39,
+                            line: 1,
+                            col: 20,
+                        },
                     },
                 },
                 Token {
                     kind: TodoKeyword,
                     text: "todo",
-                    start: Position {
-                        value: 41,
-                        line: 2,
-                        col: 0,
+                    span: Span {
+                        start: Position {
+                            value: 41,
+                            line: 2,
+                            col: 0,
+                        },
+                        end: Position {
+                            value: 44,
+                            line: 2,
+                            col: 3,
+                        },
                     },
                 },
                 Token {
                     kind: String,
                     text: "and this",
-                    start: Position {
-                        value: 46,
-                        line: 2,
-                        col: 5,
+                    span: Span {
+                        start: Position {
+                            value: 46,
+                            line: 2,
+                            col: 5,
+                        },
+                        end: Position {
+                            value: 53,
+                            line: 2,
+                            col: 12,
+                        },
                     },
                 },
             ]
@@ -221,6 +287,18 @@ pub mod parser {
                         OneLine(
                             TodoItem {
                                 message: "run this test",
+                                span: Span {
+                                    start: Position {
+                                        value: 5,
+                                        line: 0,
+                                        col: 5,
+                                    },
+                                    end: Position {
+                                        value: 17,
+                                        line: 0,
+                                        col: 17,
+                                    },
+                                },
                             },
                         ),
                     ),
@@ -228,6 +306,18 @@ pub mod parser {
                         OneLine(
                             TodoItem {
                                 message: "run this as well",
+                                span: Span {
+                                    start: Position {
+                                        value: 24,
+                                        line: 1,
+                                        col: 5,
+                                    },
+                                    end: Position {
+                                        value: 39,
+                                        line: 1,
+                                        col: 20,
+                                    },
+                                },
                             },
                         ),
                     ),
@@ -235,6 +325,18 @@ pub mod parser {
                         OneLine(
                             TodoItem {
                                 message: "and this",
+                                span: Span {
+                                    start: Position {
+                                        value: 46,
+                                        line: 2,
+                                        col: 5,
+                                    },
+                                    end: Position {
+                                        value: 53,
+                                        line: 2,
+                                        col: 12,
+                                    },
+                                },
                             },
                         ),
                     ),
@@ -262,6 +364,18 @@ pub mod parser {
                         OneLine(
                             TodoItem {
                                 message: "run this test",
+                                span: Span {
+                                    start: Position {
+                                        value: 5,
+                                        line: 0,
+                                        col: 5,
+                                    },
+                                    end: Position {
+                                        value: 17,
+                                        line: 0,
+                                        col: 17,
+                                    },
+                                },
                             },
                         ),
                     ),
@@ -269,6 +383,18 @@ pub mod parser {
                         Multiline(
                             TodoItem {
                                 message: "run this test with a single line toodo\nas well as this multiline todo\nblah blah",
+                                span: Span {
+                                    start: Position {
+                                        value: 29,
+                                        line: 2,
+                                        col: 9,
+                                    },
+                                    end: Position {
+                                        value: 139,
+                                        line: 6,
+                                        col: 4,
+                                    },
+                                },
                             },
                         ),
                     ),
@@ -289,16 +415,54 @@ pub mod parser {
             Text {
                 items: [
                     Err(
-                        ExtraText,
+                        ExtraText(
+                            Span {
+                                start: Position {
+                                    value: 0,
+                                    line: 0,
+                                    col: 0,
+                                },
+                                end: Position {
+                                    value: 12,
+                                    line: 0,
+                                    col: 12,
+                                },
+                            },
+                        ),
                     ),
                     Err(
                         UnexpectedToken {
                             expected: String,
                             found: TodoKeyword,
+                            span: Span {
+                                start: Position {
+                                    value: 23,
+                                    line: 1,
+                                    col: 9,
+                                },
+                                end: Position {
+                                    value: 26,
+                                    line: 1,
+                                    col: 12,
+                                },
+                            },
                         },
                     ),
                     Err(
-                        UnexpectedEof,
+                        UnexpectedEof(
+                            Span {
+                                start: Position {
+                                    value: 35,
+                                    line: 2,
+                                    col: 7,
+                                },
+                                end: Position {
+                                    value: 35,
+                                    line: 2,
+                                    col: 7,
+                                },
+                            },
+                        ),
                     ),
                 ],
             }
