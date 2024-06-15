@@ -129,8 +129,6 @@ impl<DB: TodosDatabase> Todos<DB> {
 
         let todo = self.inner_list()?.add(message)?;
 
-        self.update()?;
-
         Ok(todo)
     }
 
@@ -139,22 +137,20 @@ impl<DB: TodosDatabase> Todos<DB> {
 
         eprintln!("[INFO] removed a todo item");
 
-        self.update()?;
-
         Ok(())
     }
 
     pub fn mark_done(&self, id: String) -> anyhow::Result<()> {
         self.inner_list()?.mark_done(id)?;
 
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
 
     pub fn remove_done(&self) -> anyhow::Result<()> {
         self.inner_list()?.remove_done();
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
@@ -162,7 +158,7 @@ impl<DB: TodosDatabase> Todos<DB> {
     pub fn move_up(&self, id: String) -> anyhow::Result<()> {
         self.inner_list()?.move_up(id)?;
 
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
@@ -170,7 +166,7 @@ impl<DB: TodosDatabase> Todos<DB> {
     pub fn move_down(&self, id: String) -> anyhow::Result<()> {
         self.inner_list()?.move_down(id)?;
 
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
@@ -180,7 +176,7 @@ impl<DB: TodosDatabase> Todos<DB> {
 
         eprintln!("[INFO] move a todo item below another");
 
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
@@ -191,10 +187,10 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(all)
     }
 
-    fn update(&self) -> anyhow::Result<()> {
+    pub fn flush(&self) -> anyhow::Result<Vec<Todo>> {
         let all = self.get_all()?;
-        self.db.set_all_todos(all)?;
-        Ok(())
+        self.db.set_all_todos(all.clone())?;
+        Ok(all)
     }
 }
 

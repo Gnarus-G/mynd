@@ -24,7 +24,7 @@ fn load(todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
 #[tauri::command]
 fn add(todo: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos.add(&todo).into_command_result()?;
-    todos.get_all().into_command_result()
+    todos.flush().into_command_result()
 }
 
 #[tauri::command]
@@ -34,7 +34,7 @@ fn remove(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult
         .context("failed to remove (mark done) a todo")
         .into_command_result()?;
 
-    todos.get_all().into_command_result()
+    todos.flush().into_command_result()
 }
 
 #[tauri::command]
@@ -44,7 +44,7 @@ fn delete(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult
         .context("failed to remove a todo")
         .into_command_result()?;
 
-    todos.get_all().into_command_result()
+    todos.flush().into_command_result()
 }
 
 #[tauri::command]

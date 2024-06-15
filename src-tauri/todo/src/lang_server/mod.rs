@@ -1,5 +1,5 @@
 use anyhow::Context;
-use dashmap::DashSet;
+use dashmap::DashMap;
 use todo::persist::ActualTodosDB;
 use todo::{TodoID, Todos};
 use tower_lsp::jsonrpc::Result;
@@ -14,7 +14,7 @@ struct Backend {
     client: Client,
     todos: Todos<ActualTodosDB>,
     /// To remember todo in the edit buffer by their start byte position
-    previous: DashSet<TodoID>,
+    previous: DashMap<Url, Vec<TodoID>>,
 }
 
 struct ChangedDocumentItem {
@@ -54,20 +54,22 @@ impl lang::parser::ParseError {
 impl Backend {
     async fn on_change(&self, params: ChangedDocumentItem) {
         let text = ast::Text::from(params.text.as_str());
+        if let Some(previous) = self.previous.get(&params.uri) {
+            // Remove old todos from persistence store
+            for todoid in previous.iter() {
+                match self.todos.remove(&todoid.0) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        self.client
+                            .log_message(MessageType::ERROR, format!("{err}"))
+                            .await
+                    }
+                };
+            }
+        };
 
-        let mut diags = vec![];
-
-        // Remove old todos from persistence store
-        for todoid in self.previous.iter() {
-            match self.todos.remove(&todoid.0) {
-                Ok(_) => {}
-                Err(err) => {
-                    self.client
-                        .log_message(MessageType::ERROR, format!("{err}"))
-                        .await
-                }
-            };
-        }
+        let mut diagnostics = vec![];
+        let mut new_previous = vec![];
 
         for maybeitem in text.items {
             match maybeitem {
@@ -79,7 +81,7 @@ impl Backend {
 
                     match self.todos.add(&todo.message) {
                         Ok(todo) => {
-                            self.previous.insert(todo.id);
+                            new_previous.push(todo.id);
                         }
                         Err(err) => {
                             self.client
@@ -89,7 +91,7 @@ impl Backend {
                     };
                 }
                 Err(err) => {
-                    diags.push(Diagnostic::new_simple(
+                    diagnostics.push(Diagnostic::new_simple(
                         err.span().into_lsp_range(),
                         err.to_string(),
                     ));
@@ -103,9 +105,11 @@ impl Backend {
             }
         }
 
+        self.previous.insert(params.uri.clone(), new_previous);
+
         return self
             .client
-            .publish_diagnostics(params.uri, diags, params.version)
+            .publish_diagnostics(params.uri, diagnostics, params.version)
             .await;
     }
 }
@@ -163,6 +167,15 @@ impl LanguageServer for Backend {
             text,
         })
         .await;
+
+        match self.todos.flush() {
+            Ok(_) => {}
+            Err(err) => {
+                self.client
+                    .log_message(MessageType::ERROR, format!("{err:#}"))
+                    .await
+            }
+        }
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -172,6 +185,10 @@ impl LanguageServer for Backend {
             text: params.content_changes[0].text.clone(),
         })
         .await;
+    }
+
+    async fn did_close(&self, params: DidCloseTextDocumentParams) {
+        self.previous.remove(&params.text_document.uri);
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -194,7 +211,7 @@ async fn run() {
     let (service, socket) = LspService::new(|client| Backend {
         client,
         todos: Todos::load_up_with_persistor(),
-        previous: DashSet::new(),
+        previous: DashMap::new(),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

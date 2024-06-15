@@ -78,6 +78,7 @@ fn main() -> anyhow::Result<()> {
         None => match args.message {
             Some(message) => {
                 todos.add(&message)?;
+                todos.flush()?;
             }
             None => {
                 let temp_filename = "/tmp/mynd-todo.td";
@@ -213,6 +214,8 @@ mod remove {
                     }
                 }
             }
+
+            todos.flush()?;
 
             Ok(())
         }
