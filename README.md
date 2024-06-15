@@ -81,6 +81,33 @@ Options:
 There is a treesitter grammar for the `todo` syntax.
 To setup syntax Highlighting in Neovim, see [tree-sitter-todolang](https://github.com/Gnarus-G/tree-sitter-todolang)
 
+## Lsp setup
+
+I doubt this language server will ever land into `neovim/nvim-lspconfig`, so here's an example
+of my lsp config setup.
+
+```lua
+local nvim_lsp = require("lspconfig");
+
+local configs = require 'lspconfig.configs'
+
+if not configs.todols then
+  configs.todols = {
+    default_config = {
+      cmd = { "todo", "lsp" },
+      filetypes = { "td", "todo" },
+    },
+  }
+end
+
+nvim_lsp.todols.setup({
+  on_attach = on_attach, --[[your on_attach function goes here]]
+  single_file_support = true,
+  capabilities = require('cmp_nvim_lsp')
+      .default_capabilities(vim.lsp.protocol.make_client_capabilities())
+})
+```
+
 ## Dev References
 
 https://github.com/tauri-apps/tauri-docs/blob/8cdc0505ffb9e78be768a0216bd91980306206a5/docs/guides/distribution/sign-android.md

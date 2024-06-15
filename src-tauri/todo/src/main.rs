@@ -9,6 +9,8 @@ use clap::{Parser, Subcommand};
 use todo::Todos;
 
 mod config;
+mod lang;
+mod lang_server;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -44,6 +46,9 @@ enum Command {
 
     /// Manage global configuration values.
     Config(manageconfigcli::ConfigArgs),
+
+    /// Start the language server.
+    Lsp,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -68,12 +73,10 @@ fn main() -> anyhow::Result<()> {
                 let err = std::process::Command::new("mynd").exec();
                 return Err(err).context("failed to run the executable `mynd`. See the README @ https://github.com/Gnarus-G/mynd");
             }
+            Command::Lsp => lang_server::start(),
         },
         None => match args.message {
             Some(message) => {
-                if message.is_empty() {
-                    return Err(anyhow!("no sense in an empty todo message"));
-                }
                 todos.add(&message)?;
             }
             None => {

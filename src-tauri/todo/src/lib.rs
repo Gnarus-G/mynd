@@ -123,6 +123,10 @@ impl<DB: TodosDatabase> Todos<DB> {
     }
 
     pub fn add(&self, message: &str) -> anyhow::Result<Todo> {
+        if message.is_empty() {
+            return Err(anyhow!("no sense in an empty todo message"));
+        }
+
         let todo = self.inner_list()?.add(message)?;
 
         self.update()?;
