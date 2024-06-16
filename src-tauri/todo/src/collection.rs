@@ -1,13 +1,15 @@
-use crate::Todo;
+use crate::{Todo, TodoID};
 
 pub trait TodoCollection {
     fn add(&mut self, message: &str) -> anyhow::Result<Todo>;
 
     fn remove(&mut self, id: &str) -> anyhow::Result<()>;
 
+    fn contains(&self, id: &TodoID) -> bool;
+
     fn len(&self) -> usize;
 
-    fn mark_done(&mut self, id: String) -> anyhow::Result<()>;
+    fn mark_done(&mut self, id: &str) -> anyhow::Result<()>;
 
     fn remove_done(&mut self);
 
@@ -17,6 +19,8 @@ pub trait TodoCollection {
 
     /// Move a todo item to be directly below another.
     fn move_below(&mut self, id: &str, target_id: &str) -> anyhow::Result<()>;
+
+    fn get(&self, id: &TodoID) -> anyhow::Result<Todo>;
 
     fn get_all(&self) -> Vec<Todo>;
 }
@@ -59,8 +63,8 @@ pub mod array {
         fn add(&mut self, message: &str) -> anyhow::Result<Todo> {
             let todo = Todo::new(message.to_string());
 
-            if self.list.iter().any(|i| i.id == todo.id) {
-                return Err(anyhow!("already noted this todo message: '{}'", message));
+            if self.contains(&todo.id) {
+                return self.get(&todo.id);
             }
 
             self.list.push(todo.clone());
@@ -76,11 +80,15 @@ pub mod array {
             Ok(())
         }
 
+        fn contains(&self, id: &TodoID) -> bool {
+            return self.list.iter().any(|i| i.id == *id);
+        }
+
         fn len(&self) -> usize {
             self.list.len()
         }
 
-        fn mark_done(&mut self, id: String) -> anyhow::Result<()> {
+        fn mark_done(&mut self, id: &str) -> anyhow::Result<()> {
             let idx = self.find_index(&id)?;
 
             let todo = self.list.get_mut(idx);
@@ -163,6 +171,14 @@ pub mod array {
             }
 
             Ok(())
+        }
+
+        fn get(&self, todoid: &TodoID) -> anyhow::Result<Todo> {
+            let idx = self
+                .find_index(&todoid.0)
+                .context(anyhow!("no such todo by id: {:?}", todoid))?;
+
+            return Ok(self.list[idx].clone());
         }
 
         fn get_all(&self) -> Vec<Todo> {

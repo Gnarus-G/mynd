@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
         Some(c) => match c {
             Command::Done { ids } => {
                 for id in ids {
-                    todos.mark_done(id.clone())?;
+                    todos.mark_done(&id)?;
                     eprintln!("[INFO] marked done todo id: {}", id);
                 }
             }

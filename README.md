@@ -95,7 +95,7 @@ if not configs.todols then
   configs.todols = {
     default_config = {
       cmd = { "todo", "lsp" },
-      filetypes = { "td", "todo" },
+      filetypes = { "todolang" },
     },
   }
 end
@@ -108,6 +108,56 @@ nvim_lsp.todols.setup({
 })
 ```
 
+For codelens support in Neovim; Set it up so the codelenses refresh often, and have a convenient
+shortcut for running codelenses.
+
+```lua
+local function on_attach(_, bufnr)
+  -- ...
+
+  -- codeLens
+  -- auto refresh code lens
+  vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI', 'InsertLeave' }, {
+    group = vim.api.nvim_create_augroup("codeLenses", { clear = true }),
+    callback = function(event)
+      ---@param buf number
+      ---@return boolean
+      local function supports_code_lenses(buf)
+        local clients = vim.lsp.get_clients({ buffer = buf })
+        if next(clients) == nil then
+          print('Must have a client running to use lsp code action')
+          return false
+        end
+
+        for _, client in pairs(clients) do
+          local supported_client = client.server_capabilities['codeLensProvider']
+          if supported_client then
+            return true
+          end
+        end
+
+        return false
+      end
+
+      if supports_code_lenses(event.buf) then
+        vim.lsp.codelens.refresh({ bufnr = event.buf })
+      end
+    end
+  })
+
+  vim.api.nvim_create_autocmd('LspDetach', {
+    callback = function(event)
+      vim.lsp.codelens.clear(event.data.client_id, event.buf)
+    end
+  })
+
+  vim.keymap.set('n', '<leader>lr', vim.lsp.codelens.run, opts)
+  -- ...
+end
+```
+
 ## Dev References
 
 https://github.com/tauri-apps/tauri-docs/blob/8cdc0505ffb9e78be768a0216bd91980306206a5/docs/guides/distribution/sign-android.md
+https://github.com/neovim/neovim/pull/13165
+https://github.com/ray-x/navigator.lua/blob/master/lua/navigator/lspwrapper.lua#L122

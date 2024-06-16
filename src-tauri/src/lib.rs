@@ -30,7 +30,7 @@ fn add(todo: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult 
 #[tauri::command]
 fn remove(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
-        .mark_done(id)
+        .mark_done(&id)
         .context("failed to remove (mark done) a todo")
         .into_command_result()?;
 

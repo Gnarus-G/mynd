@@ -19,7 +19,7 @@ pub mod persist;
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Clone, Hash)]
 pub struct TodoID(pub Box<str>);
 impl TodoID {
-    fn hash_message(message: &str) -> TodoID {
+    pub fn hash_message(message: &str) -> TodoID {
         TodoID(sha256::digest(message).into())
     }
 }
@@ -140,7 +140,7 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(())
     }
 
-    pub fn mark_done(&self, id: String) -> anyhow::Result<()> {
+    pub fn mark_done(&self, id: &str) -> anyhow::Result<()> {
         self.inner_list()?.mark_done(id)?;
 
         self.flush()?;
