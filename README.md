@@ -5,6 +5,9 @@ _Yet another todo app_.
 A [very] simple todo list management cli tool for developers, with an optional gui. The fastest way I've found to go from needing to write something quickly (i.e during a meeting)
 to having it written down.
 
+![image](https://github.com/Gnarus-G/mynd/assets/37311893/7a79b1fa-704d-481a-bac4-2b1e067ef9c4)
+
+
 ![image](https://github.com/Gnarus-G/mynd/assets/37311893/69358ce2-5711-4f5b-a8be-cb989ec0c112)
 
 ## Features
