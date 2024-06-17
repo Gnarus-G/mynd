@@ -5,9 +5,15 @@ _Yet another todo app_.
 A [very] simple todo list management cli tool for developers, with an optional gui. The fastest way I've found to go from needing to write something quickly (i.e during a meeting)
 to having it written down.
 
-![image](https://github.com/Gnarus-G/mynd/assets/37311893/7a79b1fa-704d-481a-bac4-2b1e067ef9c4)
+## Edit in the terminal
 
 ![image](https://github.com/Gnarus-G/mynd/assets/37311893/17729eb9-ab8b-42f4-aaf2-8d2014356f89)
+
+## Edit in an editor (e.g Neovim with language server)
+
+![image](https://github.com/Gnarus-G/mynd/assets/37311893/7a79b1fa-704d-481a-bac4-2b1e067ef9c4)
+
+## Edit in the GUI
 
 ![image](https://github.com/Gnarus-G/mynd/assets/37311893/69358ce2-5711-4f5b-a8be-cb989ec0c112)
 
@@ -18,7 +24,7 @@ to having it written down.
 - [x] Local Persistence Option
 - [x] Soft Delete Done Items
 - [x] Permanent Deletion (Drap-n-drop to trash bin)
-- [ ] Todo Language & LSP
+- [x] Todo Language & LSP
 - [ ] Remind Command: /r (Desktop Notifications)
 - [ ] Remote Persistence Option
 
@@ -47,6 +53,14 @@ At any point you can pull up your terminal and add a todo item like so.
 todo "todo message"
 ```
 
+or, to lauch your default editor [$EDITOR].
+
+```sh
+todo
+```
+
+Note: This option [editor] is only viable with the lsp intergration.
+
 ### GUI
 
 Start up the GUI.
@@ -68,8 +82,10 @@ Commands:
   ls      List all todos that aren't done
   gui     Launch the GUI (mynd). Assuming it's in the path
   import  Read and save todos from a given file
+  edit    Edit the tood list in your default editor ($EDITOR) [default]
   dump    Dump all todos as json
   config  Manage global configuration values
+  lsp     Start the language server
   help    Print this message or the help of the given subcommand(s)
 
 Arguments:

@@ -1,10 +1,6 @@
-use std::{
-    fs::File,
-    io::{BufWriter, Write},
-    os::unix::process::CommandExt,
-};
+use std::os::unix::process::CommandExt;
 
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use todo::Todos;
 
@@ -41,6 +37,9 @@ enum Command {
     /// Read and save todos from a given file
     Import(import::ImportArgs),
 
+    /// Edit the tood list in your default editor ($EDITOR) [default]
+    Edit(edit::Edit),
+
     /// Dump all todos as json.
     Dump(dump::DumpArgs),
 
@@ -75,53 +74,14 @@ fn main() -> anyhow::Result<()> {
                 return Err(err).context("failed to run the executable `mynd`. See the README @ https://github.com/Gnarus-G/mynd");
             }
             Command::Lsp => lang_server::start(),
+            Command::Edit(a) => a.handle()?,
         },
         None => match args.message {
             Some(message) => {
                 todos.add_message(&message)?;
                 todos.flush()?;
             }
-            None => {
-                let temp_filename = "/tmp/mynd-todo.td";
-                let mut file = File::options()
-                    .read(true)
-                    .create(true)
-                    .write(true)
-                    .truncate(true)
-                    .open(temp_filename)
-                    .map(BufWriter::new)?;
-
-                for todo in todos.get_all()? {
-                    write!(file, "todo ")?;
-
-                    if todo.message.lines().count() > 1 {
-                        writeln!(file, "{{")?;
-                        for line in todo.message.lines() {
-                            writeln!(file, "  {}", line)?;
-                        }
-                        writeln!(file, "}}")?;
-                    } else {
-                        writeln!(file, "{}", todo.message)?;
-                    }
-
-                    writeln!(file)?;
-                }
-
-                drop(file);
-
-                let editor =
-                    std::env::var("EDITOR").context("failed to get the user's default editor")?;
-
-                let exitstatus = std::process::Command::new(&editor)
-                    .arg(temp_filename)
-                    .spawn()
-                    .context(anyhow!("failed to open editor: {}", editor))?
-                    .wait()?;
-
-                eprintln!("[INFO] {}", exitstatus);
-
-                // TODO: parse the edited file to update todo store.
-            }
+            None => edit::Edit.handle()?,
         },
     }
 
@@ -184,6 +144,66 @@ mod ls {
                         eprintln!()
                     }
                 });
+
+            Ok(())
+        }
+    }
+}
+
+mod edit {
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+
+    use anyhow::{anyhow, Context};
+    use clap::Args;
+    use todo::Todos;
+
+    #[derive(Debug, Args)]
+    pub struct Edit;
+
+    impl Edit {
+        pub fn handle(self) -> anyhow::Result<()> {
+            let todos = Todos::load_up_with_persistor();
+
+            let temp_filename = "/tmp/mynd-todo.td";
+            let mut file = File::options()
+                .read(true)
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(temp_filename)
+                .map(BufWriter::new)?;
+
+            for todo in todos.get_all()? {
+                write!(file, "todo ")?;
+
+                if todo.message.lines().count() > 1 {
+                    writeln!(file, "{{")?;
+                    for line in todo.message.lines() {
+                        writeln!(file, "  {}", line)?;
+                    }
+                    writeln!(file, "}}")?;
+                } else {
+                    writeln!(file, "{}", todo.message)?;
+                }
+
+                writeln!(file)?;
+            }
+
+            drop(file);
+
+            let editor =
+                std::env::var("EDITOR").context("failed to get the user's default editor")?;
+
+            let exitstatus = std::process::Command::new(&editor)
+                .arg(temp_filename)
+                .spawn()
+                .context(anyhow!("failed to open editor: {}", editor))?
+                .wait()?;
+
+            eprintln!("[INFO] {}", exitstatus);
 
             Ok(())
         }
