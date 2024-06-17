@@ -1,7 +1,9 @@
 use crate::{Todo, TodoID};
 
 pub trait TodoCollection {
-    fn add(&mut self, message: &str) -> anyhow::Result<Todo>;
+    fn add_message(&mut self, message: &str) -> anyhow::Result<Todo>;
+
+    fn add_todo(&mut self, todo: Todo);
 
     fn remove(&mut self, id: &str) -> anyhow::Result<()>;
 
@@ -19,8 +21,6 @@ pub trait TodoCollection {
 
     /// Move a todo item to be directly below another.
     fn move_below(&mut self, id: &str, target_id: &str) -> anyhow::Result<()>;
-
-    fn get(&self, id: &TodoID) -> anyhow::Result<Todo>;
 
     fn get_all(&self) -> Vec<Todo>;
 }
@@ -60,16 +60,19 @@ pub mod array {
     }
 
     impl super::TodoCollection for TodoArrayList {
-        fn add(&mut self, message: &str) -> anyhow::Result<Todo> {
+        fn add_message(&mut self, message: &str) -> anyhow::Result<Todo> {
             let todo = Todo::new(message.to_string());
 
-            if self.contains(&todo.id) {
-                return self.get(&todo.id);
-            }
-
-            self.list.push(todo.clone());
+            self.add_todo(todo.clone());
 
             Ok(todo)
+        }
+
+        fn add_todo(&mut self, todo: Todo) {
+            if self.contains(&todo.id) {
+                return;
+            }
+            self.list.push(todo);
         }
 
         fn remove(&mut self, id: &str) -> anyhow::Result<()> {
@@ -89,7 +92,7 @@ pub mod array {
         }
 
         fn mark_done(&mut self, id: &str) -> anyhow::Result<()> {
-            let idx = self.find_index(&id)?;
+            let idx = self.find_index(id)?;
 
             let todo = self.list.get_mut(idx);
 
@@ -171,14 +174,6 @@ pub mod array {
             }
 
             Ok(())
-        }
-
-        fn get(&self, todoid: &TodoID) -> anyhow::Result<Todo> {
-            let idx = self
-                .find_index(&todoid.0)
-                .context(anyhow!("no such todo by id: {:?}", todoid))?;
-
-            return Ok(self.list[idx].clone());
         }
 
         fn get_all(&self) -> Vec<Todo> {

@@ -62,6 +62,7 @@ fn main() -> anyhow::Result<()> {
                 for id in ids {
                     todos.mark_done(&id)?;
                     eprintln!("[INFO] marked done todo id: {}", id);
+                    todos.flush()?;
                 }
             }
             Command::Ls(a) => a.handle()?,
@@ -77,7 +78,7 @@ fn main() -> anyhow::Result<()> {
         },
         None => match args.message {
             Some(message) => {
-                todos.add(&message)?;
+                todos.add_message(&message)?;
                 todos.flush()?;
             }
             None => {

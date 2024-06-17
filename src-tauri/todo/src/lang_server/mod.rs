@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use anyhow::Context;
 use dashmap::DashMap;
 use serde_json::Value;
-use todo::persist::ActualTodosDB;
-use todo::{TodoID, Todos};
+use todo::persist::{ActualTodosDB, TodosDatabase};
+use todo::{Todo, TodoID, Todos};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -16,8 +16,8 @@ use crate::lang::parser::ast;
 struct Backend {
     client: Client,
     todos: Todos<ActualTodosDB>,
-    /// To remember todo in the edit buffer by their start byte position
-    previous: DashMap<Url, HashSet<TodoID>>,
+    /// To remember the set of todos in a buffer
+    seen_todo_ids_per_buffer: DashMap<Url, HashSet<TodoID>>,
 }
 
 struct ChangedDocumentItem {
@@ -55,23 +55,30 @@ impl lang::parser::ParseError {
 }
 
 impl Backend {
+    async fn log_error(&self, err: anyhow::Error) {
+        self.client
+            .log_message(MessageType::ERROR, format!("{err:#}"))
+            .await;
+    }
+
     async fn on_change(&self, params: ChangedDocumentItem) {
-        if let Err(_err) = self.todos.reload() {
-            self.client
-                .log_message(MessageType::ERROR, "failed to reload todos")
-                .await
-        };
+        // Back up everything in the store here
+        let current_store: HashMap<TodoID, _> = self
+            .todos
+            .db
+            .get_all_todos()
+            .unwrap()
+            .into_iter()
+            .chain(self.todos.get_all().unwrap())
+            .map(|t| (t.id.clone(), t))
+            .collect();
 
         let text = ast::Text::from(params.text.as_str());
 
-        let mut previous = self.previous.entry(params.uri.clone()).or_default();
-
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!("previous: {:?}", previous.clone()),
-            )
-            .await;
+        let mut dangling_todos_to_delete = self
+            .seen_todo_ids_per_buffer
+            .entry(params.uri.clone())
+            .or_default();
 
         let mut diagnostics = vec![];
         let mut new_previous = HashSet::new();
@@ -83,25 +90,31 @@ impl Backend {
                         ast::Item::OneLine(t) => t,
                         ast::Item::Multiline(t) => t,
                     };
+                    let id = TodoID::hash_message(&todo.message);
+                    let todo = current_store
+                        .get(&id)
+                        .cloned()
+                        .unwrap_or_else(|| Todo::new(todo.message));
 
-                    match self.todos.add(&todo.message) {
-                        Ok(todo) => {
-                            previous.remove(&todo.id);
-                            new_previous.insert(todo.id);
+                    // Remove from the persistent store before add (thus updating)
+                    if let Err(err) = self.todos.remove(&id.0) {
+                        self.log_error(err).await;
+                    };
 
+                    match self.todos.add(todo) {
+                        Ok(_) => {
                             self.client
                                 .log_message(
                                     MessageType::INFO,
-                                    format!("added todo message: '{}'", todo.message),
+                                    format!("added todo message, id: {:?}", id),
                                 )
-                                .await
+                                .await;
                         }
-                        Err(err) => {
-                            self.client
-                                .log_message(MessageType::ERROR, format!("{err}"))
-                                .await
-                        }
+                        Err(error) => self.log_error(error).await,
                     };
+
+                    dangling_todos_to_delete.remove(&id);
+                    new_previous.insert(id);
                 }
                 Err(err) => {
                     diagnostics.push(Diagnostic::new_simple(
@@ -122,30 +135,16 @@ impl Backend {
             .publish_diagnostics(params.uri.clone(), diagnostics, params.version)
             .await;
 
-        for todoid in previous.iter() {
+        for todoid in dangling_todos_to_delete.iter() {
             if let Err(err) = self.todos.remove(&todoid.0) {
-                self.client
-                    .log_message(MessageType::ERROR, format!("{err}"))
-                    .await
+                self.log_error(err).await
             };
         }
 
-        if let Err(err) = self.todos.flush() {
-            self.client
-                .log_message(MessageType::ERROR, format!("{err:#}"))
-                .await
-        }
+        drop(dangling_todos_to_delete);
 
-        drop(previous);
-
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!("new previous: {:?}", new_previous),
-            )
-            .await;
-
-        self.previous.insert(params.uri.clone(), new_previous);
+        self.seen_todo_ids_per_buffer
+            .insert(params.uri.clone(), new_previous);
     }
 
     async fn read_text_by_uri(&self, uri: Url) -> Option<String> {
@@ -191,6 +190,12 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        if let Err(_err) = self.todos.reload() {
+            self.client
+                .log_message(MessageType::ERROR, "failed to reload todos")
+                .await
+        };
+
         self.on_change(ChangedDocumentItem {
             uri: params.text_document.uri,
             version: Some(params.text_document.version),
@@ -218,6 +223,18 @@ impl LanguageServer for Backend {
             text,
         })
         .await;
+
+        if let Err(err) = self.todos.flush() {
+            self.client
+                .log_message(MessageType::ERROR, format!("{err:#}"))
+                .await
+        }
+
+        if let Err(_err) = self.todos.reload() {
+            self.client
+                .log_message(MessageType::ERROR, "failed to reload todos")
+                .await
+        };
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -230,7 +247,8 @@ impl LanguageServer for Backend {
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        self.previous.remove(&params.text_document.uri);
+        self.seen_todo_ids_per_buffer
+            .remove(&params.text_document.uri);
     }
 
     async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
@@ -330,7 +348,7 @@ async fn run() {
     let (service, socket) = LspService::new(|client| Backend {
         client,
         todos: Todos::load_up_with_persistor(),
-        previous: DashMap::new(),
+        seen_todo_ids_per_buffer: DashMap::new(),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

@@ -23,7 +23,7 @@ fn load(todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
 
 #[tauri::command]
 fn add(todo: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
-    todos.add(&todo).into_command_result()?;
+    todos.add_message(&todo).into_command_result()?;
     todos.flush().into_command_result()
 }
 

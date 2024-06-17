@@ -88,7 +88,7 @@ impl Todo {
 #[derive(Debug)]
 pub struct Todos<DB: TodosDatabase> {
     list: Mutex<collection::array::TodoArrayList>,
-    db: DB,
+    pub db: DB,
 }
 
 impl<DB: TodosDatabase> Todos<DB> {
@@ -122,14 +122,19 @@ impl<DB: TodosDatabase> Todos<DB> {
             .map_err(|err| anyhow!("{err}").context("failed to acquire lock on todos list"))
     }
 
-    pub fn add(&self, message: &str) -> anyhow::Result<Todo> {
+    pub fn add_message(&self, message: &str) -> anyhow::Result<Todo> {
         if message.is_empty() {
             return Err(anyhow!("no sense in an empty todo message"));
         }
 
-        let todo = self.inner_list()?.add(message)?;
+        let todo = self.inner_list()?.add_message(message)?;
 
         Ok(todo)
+    }
+
+    pub fn add(&self, todo: Todo) -> anyhow::Result<()> {
+        self.inner_list()?.add_todo(todo);
+        Ok(())
     }
 
     pub fn remove(&self, id: &str) -> anyhow::Result<()> {
@@ -142,8 +147,6 @@ impl<DB: TodosDatabase> Todos<DB> {
 
     pub fn mark_done(&self, id: &str) -> anyhow::Result<()> {
         self.inner_list()?.mark_done(id)?;
-
-        self.flush()?;
 
         Ok(())
     }
@@ -225,11 +228,11 @@ mod tests {
     fn move_below_from_top_to_bottom() {
         let todos = Todos::new_inmemory();
 
-        todos.add("1").unwrap();
-        todos.add("2").unwrap();
-        let target = todos.add("3").unwrap().id.0;
-        todos.add("4").unwrap();
-        let id = todos.add("5").unwrap().id.0;
+        todos.add_message("1").unwrap();
+        todos.add_message("2").unwrap();
+        let target = todos.add_message("3").unwrap().id.0;
+        todos.add_message("4").unwrap();
+        let id = todos.add_message("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
         todos.move_below(&id, &target).unwrap();
@@ -257,11 +260,11 @@ mod tests {
     fn move_below_from_bottom_to_top() {
         let todos = Todos::new_inmemory();
 
-        todos.add("1").unwrap();
-        let id = todos.add("2").unwrap().id.0;
-        todos.add("3").unwrap();
-        todos.add("4").unwrap();
-        let target = todos.add("5").unwrap().id.0;
+        todos.add_message("1").unwrap();
+        let id = todos.add_message("2").unwrap().id.0;
+        todos.add_message("3").unwrap();
+        todos.add_message("4").unwrap();
+        let target = todos.add_message("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
         todos.move_below(&id, &target).unwrap();
@@ -289,11 +292,11 @@ mod tests {
     fn move_below_to_bottom() {
         let todos = Todos::new_inmemory();
 
-        let target = todos.add("1").unwrap().id.0;
-        todos.add("2").unwrap();
-        todos.add("3").unwrap();
-        todos.add("4").unwrap();
-        let id = todos.add("5").unwrap().id.0;
+        let target = todos.add_message("1").unwrap().id.0;
+        todos.add_message("2").unwrap();
+        todos.add_message("3").unwrap();
+        todos.add_message("4").unwrap();
+        let id = todos.add_message("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
         todos.move_below(&id, &target).unwrap();
