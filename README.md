@@ -137,39 +137,35 @@ local function on_attach(_, bufnr)
 
   -- codeLens
   -- auto refresh code lens
-  vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI', 'InsertLeave' }, {
-    group = vim.api.nvim_create_augroup("codeLenses", { clear = true }),
-    callback = function(event)
-      ---@param buf number
-      ---@return boolean
-      local function supports_code_lenses(buf)
-        local clients = vim.lsp.get_clients({ buffer = buf })
-        if next(clients) == nil then
-          print('Must have a client running to use lsp code action')
-          return false
-        end
+  local codelenses_augroup = vim.api.nvim_create_augroup("codeLenses", { clear = true })
 
-        for _, client in pairs(clients) do
-          local supported_client = client.server_capabilities['codeLensProvider']
-          if supported_client then
-            return true
-          end
-        end
-
-        return false
+  local function supports_code_lenses(buf)
+    local clients = vim.lsp.get_clients({ buffer = buf })
+    for _, client in pairs(clients) do
+      if client.supports_method("textDocument/codeLens") then
+        return true
       end
+    end
+    return false
+  end
 
-      if supports_code_lenses(event.buf) then
+  if supports_code_lenses(bufnr) then
+    vim.api.nvim_create_autocmd({ 'CursorHold', 'BufEnter', 'InsertLeave' }, {
+      group = codelenses_augroup,
+      buffer = bufnr,
+      callback = function(event)
         vim.lsp.codelens.refresh({ bufnr = event.buf })
       end
-    end
-  })
+    })
 
-  vim.api.nvim_create_autocmd('LspDetach', {
-    callback = function(event)
-      vim.lsp.codelens.clear(event.data.client_id, event.buf)
-    end
-  })
+    vim.api.nvim_create_autocmd('LspDetach', {
+      group = codelenses_augroup,
+      buffer = bufnr,
+      callback = function(event)
+        vim.lsp.codelens.clear(event.data.client_id, event.buf)
+      end
+    })
+  end
 
   vim.keymap.set('n', '<leader>lr', vim.lsp.codelens.run, opts)
   -- ...
