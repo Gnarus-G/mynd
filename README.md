@@ -142,7 +142,7 @@ local function on_attach(_, bufnr)
   local function supports_code_lenses(buf)
     local clients = vim.lsp.get_clients({ buffer = buf })
     for _, client in pairs(clients) do
-      if client.supports_method("textDocument/codeLens") then
+      if client.server_capabilities.codeLensProvider then
         return true
       end
     end
