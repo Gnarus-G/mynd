@@ -9,6 +9,7 @@ pub trait TodosDatabase {
     fn set_all_todos(&self, todos: Vec<Todo>) -> anyhow::Result<()>;
 }
 
+#[derive(Debug)]
 pub enum ActualTodosDB {
     JsonFile(jsonfile::TodosJsonDB),
     BinaryFile(binary::TodosBin),
@@ -59,6 +60,7 @@ pub mod jsonfile {
     use anyhow::{anyhow, Context};
     use serde::{de::DeserializeOwned, Serialize};
 
+    #[derive(Debug)]
     pub struct TodosJsonDB {
         filename: anyhow::Result<PathBuf>,
     }
@@ -217,6 +219,7 @@ pub mod binary {
         }
     }
 
+    #[derive(Debug)]
     pub struct TodosBin {
         filename: anyhow::Result<PathBuf>,
     }

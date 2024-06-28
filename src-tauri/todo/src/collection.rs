@@ -1,13 +1,17 @@
-use crate::Todo;
+use crate::{Todo, TodoID};
 
 pub trait TodoCollection {
-    fn add(&mut self, message: &str) -> anyhow::Result<Todo>;
+    fn add_message(&mut self, message: &str) -> anyhow::Result<Todo>;
 
-    fn remove(&mut self, id: String) -> anyhow::Result<()>;
+    fn add_todo(&mut self, todo: Todo);
+
+    fn remove(&mut self, id: &str) -> anyhow::Result<()>;
+
+    fn contains(&self, id: &TodoID) -> bool;
 
     fn len(&self) -> usize;
 
-    fn mark_done(&mut self, id: String) -> anyhow::Result<()>;
+    fn mark_done(&mut self, id: &str) -> anyhow::Result<()>;
 
     fn remove_done(&mut self);
 
@@ -16,7 +20,7 @@ pub trait TodoCollection {
     fn move_down(&mut self, id: String) -> anyhow::Result<()>;
 
     /// Move a todo item to be directly below another.
-    fn move_below(&mut self, id: String, target_id: String) -> anyhow::Result<()>;
+    fn move_below(&mut self, id: &str, target_id: &str) -> anyhow::Result<()>;
 
     fn get_all(&self) -> Vec<Todo>;
 }
@@ -36,12 +40,12 @@ pub mod array {
             Self { list: vec![] }
         }
 
-        fn find_index(&self, id: String) -> anyhow::Result<usize> {
+        fn find_index(&self, id: &str) -> anyhow::Result<usize> {
             let idx = self
                 .list
                 .iter()
                 .enumerate()
-                .find(|(_, t)| t.id == TodoID(id.clone()))
+                .find(|(_, t)| t.id == TodoID(id.into()))
                 .context("didn't find a todo by the id provided")?
                 .0;
 
@@ -56,19 +60,22 @@ pub mod array {
     }
 
     impl super::TodoCollection for TodoArrayList {
-        fn add(&mut self, message: &str) -> anyhow::Result<Todo> {
+        fn add_message(&mut self, message: &str) -> anyhow::Result<Todo> {
             let todo = Todo::new(message.to_string());
 
-            if self.list.iter().any(|i| i.id == todo.id) {
-                return Err(anyhow!("already noted this todo message: '{}'", message));
-            }
-
-            self.list.push(todo.clone());
+            self.add_todo(todo.clone());
 
             Ok(todo)
         }
 
-        fn remove(&mut self, id: String) -> anyhow::Result<()> {
+        fn add_todo(&mut self, todo: Todo) {
+            if self.contains(&todo.id) {
+                return;
+            }
+            self.list.push(todo);
+        }
+
+        fn remove(&mut self, id: &str) -> anyhow::Result<()> {
             let index = self.find_index(id)?;
 
             self.list.remove(index);
@@ -76,11 +83,15 @@ pub mod array {
             Ok(())
         }
 
+        fn contains(&self, id: &TodoID) -> bool {
+            return self.list.iter().any(|i| i.id == *id);
+        }
+
         fn len(&self) -> usize {
             self.list.len()
         }
 
-        fn mark_done(&mut self, id: String) -> anyhow::Result<()> {
+        fn mark_done(&mut self, id: &str) -> anyhow::Result<()> {
             let idx = self.find_index(id)?;
 
             let todo = self.list.get_mut(idx);
@@ -98,7 +109,7 @@ pub mod array {
         }
 
         fn move_up(&mut self, id: String) -> anyhow::Result<()> {
-            let idx = self.find_index(id)?;
+            let idx = self.find_index(&id)?;
 
             if idx < self.len() {
                 let curr = self.list[idx].clone();
@@ -112,7 +123,7 @@ pub mod array {
         }
 
         fn move_down(&mut self, id: String) -> anyhow::Result<()> {
-            let idx = self.find_index(id)?;
+            let idx = self.find_index(&id)?;
 
             if idx < self.len() {
                 let curr = self.list[idx].clone();
@@ -126,7 +137,7 @@ pub mod array {
         }
 
         /// Move a todo item to be directly below another.
-        fn move_below(&mut self, id: String, target_id: String) -> anyhow::Result<()> {
+        fn move_below(&mut self, id: &str, target_id: &str) -> anyhow::Result<()> {
             // remember here that todos are added to the front of the list
             // so 0..len is from most newest to oldest, top to bottom
             // so i + 1 is below i

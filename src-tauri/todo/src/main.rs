@@ -1,11 +1,12 @@
 use std::os::unix::process::CommandExt;
 
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use clap::{Parser, Subcommand};
-use ls::LsArgs;
 use todo::Todos;
 
 mod config;
+mod lang;
+mod lang_server;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -36,11 +37,17 @@ enum Command {
     /// Read and save todos from a given file
     Import(import::ImportArgs),
 
+    /// Edit the tood list in your default editor ($EDITOR) [default]
+    Edit(edit::Edit),
+
     /// Dump all todos as json.
     Dump(dump::DumpArgs),
 
     /// Manage global configuration values.
     Config(manageconfigcli::ConfigArgs),
+
+    /// Start the language server.
+    Lsp,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -52,8 +59,9 @@ fn main() -> anyhow::Result<()> {
         Some(c) => match c {
             Command::Done { ids } => {
                 for id in ids {
-                    todos.mark_done(id.clone())?;
+                    todos.mark_done(&id)?;
                     eprintln!("[INFO] marked done todo id: {}", id);
+                    todos.flush()?;
                 }
             }
             Command::Ls(a) => a.handle()?,
@@ -65,19 +73,15 @@ fn main() -> anyhow::Result<()> {
                 let err = std::process::Command::new("mynd").exec();
                 return Err(err).context("failed to run the executable `mynd`. See the README @ https://github.com/Gnarus-G/mynd");
             }
+            Command::Lsp => lang_server::start(),
+            Command::Edit(a) => a.handle()?,
         },
         None => match args.message {
             Some(message) => {
-                if message.is_empty() {
-                    return Err(anyhow!("no sense in an empty todo message"));
-                }
-                todos.add(&message)?;
+                todos.add_message(&message)?;
+                todos.flush()?;
             }
-            None => LsArgs {
-                full: true,
-                quiet: false,
-            }
-            .handle()?,
+            None => edit::Edit.handle()?,
         },
     }
 
@@ -146,6 +150,66 @@ mod ls {
     }
 }
 
+mod edit {
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+
+    use anyhow::{anyhow, Context};
+    use clap::Args;
+    use todo::Todos;
+
+    #[derive(Debug, Args)]
+    pub struct Edit;
+
+    impl Edit {
+        pub fn handle(self) -> anyhow::Result<()> {
+            let todos = Todos::load_up_with_persistor();
+
+            let temp_filename = "/tmp/mynd-todo.td";
+            let mut file = File::options()
+                .read(true)
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(temp_filename)
+                .map(BufWriter::new)?;
+
+            for todo in todos.get_all()? {
+                write!(file, "todo ")?;
+
+                if todo.message.lines().count() > 1 {
+                    writeln!(file, "{{")?;
+                    for line in todo.message.lines() {
+                        writeln!(file, "  {}", line)?;
+                    }
+                    writeln!(file, "}}")?;
+                } else {
+                    writeln!(file, "{}", todo.message)?;
+                }
+
+                writeln!(file)?;
+            }
+
+            drop(file);
+
+            let editor =
+                std::env::var("EDITOR").context("failed to get the user's default editor")?;
+
+            let exitstatus = std::process::Command::new(&editor)
+                .arg(temp_filename)
+                .spawn()
+                .context(anyhow!("failed to open editor: {}", editor))?
+                .wait()?;
+
+            eprintln!("[INFO] {}", exitstatus);
+
+            Ok(())
+        }
+    }
+}
+
 mod remove {
     use clap::Args;
     use todo::Todos;
@@ -161,7 +225,7 @@ mod remove {
             let todos = Todos::load_up_with_persistor();
 
             for id in self.ids {
-                match todos.remove(id.clone()) {
+                match todos.remove(&id) {
                     Ok(_) => {
                         eprintln!("[INFO] deleted todo id: {}", id)
                     }
@@ -171,6 +235,8 @@ mod remove {
                     }
                 }
             }
+
+            todos.flush()?;
 
             Ok(())
         }

@@ -13,25 +13,26 @@ use serde::{Deserialize, Serialize};
 
 mod collection;
 mod config;
+mod lang;
 pub mod persist;
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone)]
-pub struct TodoID(pub String);
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Clone, Hash)]
+pub struct TodoID(pub Box<str>);
 impl TodoID {
-    fn hash_message(message: &str) -> TodoID {
-        TodoID(sha256::digest(message))
+    pub fn hash_message(message: &str) -> TodoID {
+        TodoID(sha256::digest(message).into())
     }
 }
 
 impl From<String> for TodoID {
     fn from(value: String) -> Self {
-        Self(value)
+        Self(value.into())
     }
 }
 
 impl From<&str> for TodoID {
     fn from(value: &str) -> Self {
-        Self(value.to_string())
+        Self(value.into())
     }
 }
 
@@ -87,7 +88,7 @@ impl Todo {
 #[derive(Debug)]
 pub struct Todos<DB: TodosDatabase> {
     list: Mutex<collection::array::TodoArrayList>,
-    db: DB,
+    pub db: DB,
 }
 
 impl<DB: TodosDatabase> Todos<DB> {
@@ -121,35 +122,38 @@ impl<DB: TodosDatabase> Todos<DB> {
             .map_err(|err| anyhow!("{err}").context("failed to acquire lock on todos list"))
     }
 
-    pub fn add(&self, message: &str) -> anyhow::Result<Todo> {
-        let todo = self.inner_list()?.add(message)?;
+    pub fn add_message(&self, message: &str) -> anyhow::Result<Todo> {
+        if message.is_empty() {
+            return Err(anyhow!("no sense in an empty todo message"));
+        }
 
-        self.update()?;
+        let todo = self.inner_list()?.add_message(message)?;
 
         Ok(todo)
     }
 
-    pub fn remove(&self, id: String) -> anyhow::Result<()> {
+    pub fn add(&self, todo: Todo) -> anyhow::Result<()> {
+        self.inner_list()?.add_todo(todo);
+        Ok(())
+    }
+
+    pub fn remove(&self, id: &str) -> anyhow::Result<()> {
         self.inner_list()?.remove(id)?;
 
         eprintln!("[INFO] removed a todo item");
 
-        self.update()?;
-
         Ok(())
     }
 
-    pub fn mark_done(&self, id: String) -> anyhow::Result<()> {
+    pub fn mark_done(&self, id: &str) -> anyhow::Result<()> {
         self.inner_list()?.mark_done(id)?;
-
-        self.update()?;
 
         Ok(())
     }
 
     pub fn remove_done(&self) -> anyhow::Result<()> {
         self.inner_list()?.remove_done();
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
@@ -157,7 +161,7 @@ impl<DB: TodosDatabase> Todos<DB> {
     pub fn move_up(&self, id: String) -> anyhow::Result<()> {
         self.inner_list()?.move_up(id)?;
 
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
@@ -165,17 +169,17 @@ impl<DB: TodosDatabase> Todos<DB> {
     pub fn move_down(&self, id: String) -> anyhow::Result<()> {
         self.inner_list()?.move_down(id)?;
 
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
 
-    pub fn move_below(&self, id: String, target_id: String) -> anyhow::Result<()> {
+    pub fn move_below(&self, id: &str, target_id: &str) -> anyhow::Result<()> {
         self.inner_list()?.move_below(id, target_id)?;
 
         eprintln!("[INFO] move a todo item below another");
 
-        self.update()?;
+        self.flush()?;
 
         Ok(())
     }
@@ -186,10 +190,10 @@ impl<DB: TodosDatabase> Todos<DB> {
         Ok(all)
     }
 
-    fn update(&self) -> anyhow::Result<()> {
+    pub fn flush(&self) -> anyhow::Result<Vec<Todo>> {
         let all = self.get_all()?;
-        self.db.set_all_todos(all)?;
-        Ok(())
+        self.db.set_all_todos(all.clone())?;
+        Ok(all)
     }
 }
 
@@ -224,14 +228,14 @@ mod tests {
     fn move_below_from_top_to_bottom() {
         let todos = Todos::new_inmemory();
 
-        todos.add("1").unwrap();
-        todos.add("2").unwrap();
-        let target = todos.add("3").unwrap().id.0;
-        todos.add("4").unwrap();
-        let id = todos.add("5").unwrap().id.0;
+        todos.add_message("1").unwrap();
+        todos.add_message("2").unwrap();
+        let target = todos.add_message("3").unwrap().id.0;
+        todos.add_message("4").unwrap();
+        let id = todos.add_message("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target).unwrap();
+        todos.move_below(&id, &target).unwrap();
 
         let messages = todos
             .get_all()
@@ -256,14 +260,14 @@ mod tests {
     fn move_below_from_bottom_to_top() {
         let todos = Todos::new_inmemory();
 
-        todos.add("1").unwrap();
-        let id = todos.add("2").unwrap().id.0;
-        todos.add("3").unwrap();
-        todos.add("4").unwrap();
-        let target = todos.add("5").unwrap().id.0;
+        todos.add_message("1").unwrap();
+        let id = todos.add_message("2").unwrap().id.0;
+        todos.add_message("3").unwrap();
+        todos.add_message("4").unwrap();
+        let target = todos.add_message("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target).unwrap();
+        todos.move_below(&id, &target).unwrap();
 
         let messages = todos
             .get_all()
@@ -288,14 +292,14 @@ mod tests {
     fn move_below_to_bottom() {
         let todos = Todos::new_inmemory();
 
-        let target = todos.add("1").unwrap().id.0;
-        todos.add("2").unwrap();
-        todos.add("3").unwrap();
-        todos.add("4").unwrap();
-        let id = todos.add("5").unwrap().id.0;
+        let target = todos.add_message("1").unwrap().id.0;
+        todos.add_message("2").unwrap();
+        todos.add_message("3").unwrap();
+        todos.add_message("4").unwrap();
+        let id = todos.add_message("5").unwrap().id.0;
         // now, todos = [5, 4, 3, 2, 1]
 
-        todos.move_below(id, target).unwrap();
+        todos.move_below(&id, &target).unwrap();
 
         let messages = todos
             .get_all()

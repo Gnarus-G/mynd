@@ -23,28 +23,28 @@ fn load(todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
 
 #[tauri::command]
 fn add(todo: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
-    todos.add(&todo).into_command_result()?;
-    todos.get_all().into_command_result()
+    todos.add_message(&todo).into_command_result()?;
+    todos.flush().into_command_result()
 }
 
 #[tauri::command]
 fn remove(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
-        .mark_done(id)
+        .mark_done(&id)
         .context("failed to remove (mark done) a todo")
         .into_command_result()?;
 
-    todos.get_all().into_command_result()
+    todos.flush().into_command_result()
 }
 
 #[tauri::command]
 fn delete(id: String, todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
-        .remove(id)
+        .remove(&id)
         .context("failed to remove a todo")
         .into_command_result()?;
 
-    todos.get_all().into_command_result()
+    todos.flush().into_command_result()
 }
 
 #[tauri::command]
@@ -84,7 +84,7 @@ fn move_below(
     todos: tauri::State<'_, TodosState>,
 ) -> TodosCommandResult {
     todos
-        .move_below(id, target_id)
+        .move_below(&id, &target_id)
         .context("failed to move a todo below another")
         .into_command_result()?;
 
