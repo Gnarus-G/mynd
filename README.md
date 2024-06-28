@@ -123,8 +123,7 @@ end
 nvim_lsp.todols.setup({
   on_attach = on_attach, --[[your on_attach function goes here]]
   single_file_support = true,
-  capabilities = require('cmp_nvim_lsp')
-      .default_capabilities(vim.lsp.protocol.make_client_capabilities())
+  --[[ capabilities = ... -- your capabilities here ]]
 })
 ```
 
@@ -132,44 +131,34 @@ For codelens support in Neovim; Set it up so the codelenses refresh often, and h
 shortcut for running codelenses.
 
 ```lua
-local function on_attach(_, bufnr)
-  -- ...
+local codelens_augroup = vim.api.nvim_create_augroup("todols:codeLenses", { clear = true })
 
-  -- codeLens
-  -- auto refresh code lens
-  local codelenses_augroup = vim.api.nvim_create_augroup("codeLenses", { clear = true })
-
-  local function supports_code_lenses(buf)
-    local clients = vim.lsp.get_clients({ buffer = buf })
-    for _, client in pairs(clients) do
-      if client.server_capabilities.codeLensProvider then
-        return true
-      end
-    end
-    return false
-  end
-
-  if supports_code_lenses(bufnr) then
+vim.api.nvim_create_autocmd('LspAttach', {
+  desc = 'Sets up todols codelens autocommands',
+  pattern = { "*.td", "*.todo" },
+  group = codelens_augroup,
+  callback = function(event)
     vim.api.nvim_create_autocmd({ 'CursorHold', 'BufEnter', 'InsertLeave' }, {
-      group = codelenses_augroup,
-      buffer = bufnr,
-      callback = function(event)
+      group = codelens_augroup,
+      buffer = event.buf,
+      callback = function()
         vim.lsp.codelens.refresh({ bufnr = event.buf })
       end
     })
 
     vim.api.nvim_create_autocmd('LspDetach', {
-      group = codelenses_augroup,
-      buffer = bufnr,
-      callback = function(event)
-        vim.lsp.codelens.clear(event.data.client_id, event.buf)
+      group = codelens_augroup,
+      buffer = event.buf,
+      callback = function(e)
+        vim.lsp.codelens.clear(e.data.client_id, e.buf)
       end
     })
-  end
 
-  vim.keymap.set('n', '<leader>lr', vim.lsp.codelens.run, opts)
-  -- ...
-end
+    -- If this action (codelens.run) is not already bound to a key.
+    -- i.e you don't already a keymap for running codelenses
+    vim.keymap.set('n', '<leader>lr', vim.lsp.codelens.run, { buffer = event.buf, remap = false })
+  end
+})
 ```
 
 ## Dev References
