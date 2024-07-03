@@ -94,7 +94,7 @@ export async function deleteTodo(id: string) {
       todos.set(data);
       addToast({
         type: "success",
-        message: "Todo item sucessfully deleted",
+        message: "Todo item successfully deleted",
       });
     },
     error: handleError,

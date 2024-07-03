@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use super::{CharaterTest, Position, Span};
+use super::{CharacterTest, Position, Span};
 
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {

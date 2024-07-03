@@ -37,7 +37,7 @@ enum Command {
     /// Read and save todos from a given file
     Import(import::ImportArgs),
 
-    /// Edit the tood list in your default editor ($EDITOR) [default]
+    /// Edit the todo list in your default editor ($EDITOR) [default]
     Edit(edit::Edit),
 
     /// Dump all todos as json.

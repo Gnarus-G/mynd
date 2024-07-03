@@ -278,7 +278,7 @@ pub mod binary {
             return Ok(vec![]);
         }
 
-        let mut todos = Vec::with_capacity(data.len() / 14); // 14 is the intended minimun of bytes
+        let mut todos = Vec::with_capacity(data.len() / 14); // 14 is the intended minimum of bytes
                                                              // to represent a todo message, (i.e an
                                                              // empty message string)
         data.reverse(); // make it a stack.

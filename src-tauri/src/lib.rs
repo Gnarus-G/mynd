@@ -12,7 +12,7 @@ fn initial_todos_state() -> TodosState {
 fn load(todos: tauri::State<'_, TodosState>) -> TodosCommandResult {
     todos
         .reload()
-        .context("failed to relaod todos")
+        .context("failed to reload todos")
         .into_command_result()?;
 
     todos

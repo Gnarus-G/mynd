@@ -18,11 +18,11 @@ impl Position {
     }
 }
 
-trait CharaterTest {
+trait CharacterTest {
     fn passes<P: Fn(&u8) -> bool>(&self, predicate: P) -> bool;
 }
 
-impl CharaterTest for Option<&u8> {
+impl CharacterTest for Option<&u8> {
     fn passes<P: Fn(&u8) -> bool>(&self, predicate: P) -> bool {
         match self {
             Some(c) => predicate(c),

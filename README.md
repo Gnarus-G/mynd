@@ -53,13 +53,13 @@ At any point you can pull up your terminal and add a todo item like so.
 todo "todo message"
 ```
 
-or, to lauch your default editor [$EDITOR].
+or, to launch your default editor [$EDITOR].
 
 ```sh
 todo
 ```
 
-Note: This option [editor] is only viable with the lsp intergration.
+Note: This option [editor] is only viable with the lsp integration.
 
 ### GUI
 
@@ -82,7 +82,7 @@ Commands:
   ls      List all todos that aren't done
   gui     Launch the GUI (mynd). Assuming it's in the path
   import  Read and save todos from a given file
-  edit    Edit the tood list in your default editor ($EDITOR) [default]
+  edit    Edit the todo list in your default editor ($EDITOR) [default]
   dump    Dump all todos as json
   config  Manage global configuration values
   lsp     Start the language server
