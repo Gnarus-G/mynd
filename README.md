@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/Gnarus-G/mynd/main/install.sh | sh
 ```
 
 This depends on you having installed [bun](https://bun.sh/) and [rust](https://doc.rust-lang.org/cargo/getting-started/installation.html); `git` as well, but you
-probably already have that.
+probably already have that. Lastly, importantly, system prerequisites for [tauri](https://v2.tauri.app/start/prerequisites/#linux).
 
 ### Other Options
 
