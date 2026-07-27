@@ -1,0 +1,12 @@
+[Unit]
+Description=Mynd PWA server
+After=network.target
+
+[Service]
+# The source installer renders this default unit with the selected binary path and HTTP port.
+ExecStart=%h/.local/bin/mynd-server --bind 127.0.0.1:4280
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

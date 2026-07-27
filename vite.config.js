@@ -1,33 +1,50 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
-import { internalIpV4 } from "internal-ip";
-
-// @ts-expect-error process is a nodejs global
-const mobile = !!/android|ios/.exec(process.env.TAURI_ENV_PLATFORM);
+import { SvelteKitPWA } from "@vite-pwa/sveltekit";
 
 // https://vitejs.dev/config/
-export default defineConfig(async () => ({
-  plugins: [sveltekit()],
-
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent vite from obscuring rust errors
-  clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
+export default defineConfig({
+  plugins: [
+    sveltekit(),
+    SvelteKitPWA({
+      registerType: "prompt",
+      includeAssets: ["favicon.svg", "icons/*.png", "icons/logo.svg"],
+      manifest: {
+        name: "Mynd",
+        short_name: "Mynd",
+        description: "A fast, private todo capture tool.",
+        theme_color: "#17221c",
+        background_color: "#17221c",
+        display: "standalone",
+        scope: "/",
+        start_url: "/",
+        icons: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+          {
+            src: "/icons/icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      workbox: {
+        navigateFallback: "/",
+        runtimeCaching: [
+          {
+            urlPattern: /\/api\//,
+            handler: "NetworkOnly",
+          },
+        ],
+      },
+    }),
+  ],
   server: {
-    port: 1420,
+    port: 5173,
     strictPort: true,
-    host: mobile ? "0.0.0.0" : false,
-    hmr: mobile
-      ? {
-        protocol: "ws",
-        host: await internalIpV4(),
-        port: 1421,
-      }
-      : undefined,
-    watch: {
-      // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+    proxy: {
+      "/api": "http://127.0.0.1:4280",
     },
   },
-}));
+});

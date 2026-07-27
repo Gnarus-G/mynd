@@ -1,168 +1,217 @@
-# mynd
+# Mynd
 
-_Yet another todo app_.
+Mynd is a fast, private todo CLI with one installable web interface for desktop and mobile.
 
-A [very] simple todo list management cli tool for developers, with an optional gui. The fastest way I've found to go from needing to write something quickly (i.e during a meeting)
-to having it written down.
-
-## Edit in the terminal
-
-![image](https://github.com/Gnarus-G/mynd/assets/37311893/17729eb9-ab8b-42f4-aaf2-8d2014356f89)
-
-## Edit in an editor (e.g Neovim with language server)
-
-![image](https://github.com/Gnarus-G/mynd/assets/37311893/7a79b1fa-704d-481a-bac4-2b1e067ef9c4)
-
-## Edit in the GUI
-
-![image](https://github.com/Gnarus-G/mynd/assets/37311893/69358ce2-5711-4f5b-a8be-cb989ec0c112)
+The CLI, language server, and web service share local files under `~/mynd`; the server listens only on loopback and can optionally be exposed to your own devices with Tailscale Serve.
 
 ## Features
 
-- [x] Simple GUI
-- [x] CLI for efficiency
-- [x] Local Persistence Option
-- [x] Soft Delete Done Items
-- [x] Permanent Deletion (Drap-n-drop to trash bin)
-- [x] Todo Language & LSP
-- [ ] Remind Command: /r (Desktop Notifications)
-- [ ] Remote Persistence Option
+- Fast `todo "message"` capture from any terminal
+- Add, complete, delete, clear, and reorder from the PWA
+- Installable desktop and mobile interface
+- Installed desktop app detection with default-browser fallback
+- Optional private HTTPS access through Tailscale
+- Binary or JSON local persistence
+- Todo language and LSP support
+- Cross-process locking and atomic writes across CLI, LSP, and web requests
 
-## Install (Linux only)
+## Supported Systems
 
-### Recommended Option
+Mynd supports Linux distributions using systemd user services; the installer builds natively, so it does not assume a specific distribution, CPU architecture, hostname, browser, home-directory layout, or Tailscale network.
+
+Required tools:
+
+- Git
+- Node.js and npm
+- A stable Rust toolchain with Cargo
+- systemd with a running user manager
+- curl and standard POSIX utilities
+- The native build tools required by Rust crates on your distribution
+
+Tailscale is optional and is only needed for private access from other devices.
+
+The installer runs entirely as the current user and does not use `sudo`.
+
+## Install
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Gnarus-G/mynd/main/install.sh | sh
 ```
 
-This depends on you having installed [bun](https://bun.sh/) and [rust](https://doc.rust-lang.org/cargo/getting-started/installation.html); `git` as well, but you
-probably already have that. Lastly, importantly, system prerequisites for [tauri](https://v2.tauri.app/start/prerequisites/#linux).
+The installer:
 
-### Other Options
+1. Builds Mynd in a temporary directory for the current architecture.
+2. Installs `todo`, `mynd`, and `mynd-server` under `~/.local/bin` by default.
+3. Writes a systemd user unit under `${XDG_CONFIG_HOME:-~/.config}/systemd/user`.
+4. Starts a loopback-only service on `127.0.0.1:4280` by default.
+5. Offers optional Tailscale Serve configuration through `/dev/tty`, including when invoked with `curl | sh`.
 
-Find the executables in the [releases](https://github.com/Gnarus-G/mynd/releases).
+No repository checkout or build directory is retained after installation.
 
-## Usage
+### Installer Options
 
-### CLI
-
-At any point you can pull up your terminal and add a todo item like so.
+Pass environment variables to `sh`, not to `curl`:
 
 ```sh
-todo "todo message"
+curl -fsSL https://raw.githubusercontent.com/Gnarus-G/mynd/main/install.sh |
+  MYND_HTTP_PORT=4281 MYND_TAILSCALE_PORT=8445 sh
 ```
 
-or, to launch your default editor [$EDITOR].
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MYND_BIN_DIR` | `$HOME/.local/bin` | Binary installation directory |
+| `MYND_HTTP_PORT` | `4280` | Loopback HTTP port |
+| `MYND_TAILSCALE_PORT` | `8444` | Tailnet HTTPS port |
+| `MYND_ENABLE_TAILSCALE` | prompt | Set to `1` to enable or `0` to skip noninteractively |
+| `MYND_REPOSITORY` | official GitHub repository | Alternate Git remote |
+| `MYND_REF` | `main` | Branch or tag to install |
+
+Example noninteractive installation with Tailscale:
 
 ```sh
-todo
+curl -fsSL https://raw.githubusercontent.com/Gnarus-G/mynd/main/install.sh |
+  MYND_ENABLE_TAILSCALE=1 sh
 ```
 
-Note: This option [editor] is only viable with the lsp integration.
+If the chosen HTTP or HTTPS port is already occupied, select another with the corresponding variable; the installer never binds the Mynd server to a LAN interface.
 
-### GUI
+## Use
 
-Start up the GUI.
+Capture a todo:
 
 ```sh
+todo "send the proposal"
+```
+
+Open the graphical app:
+
+```sh
+mynd
+# or
 todo gui
 ```
 
-Or just call `mynd` directly, which is what `todo gui` does.
+The launcher follows this order:
 
-Very convenient when your manager is rapping requirements at you during a meeting.
+1. Launch an installed Mynd PWA registered through the standard XDG desktop-app directory.
+2. Open the configured Mynd URL with the default browser when no installed app can be launched.
 
-```
-Usage: todo [MESSAGE] [COMMAND]
+Print the configured URL:
 
-Commands:
-  done    Mark one or more todo items as done
-  rm      Delete a todo item, regardless of if it's done or not
-  ls      List all todos that aren't done
-  gui     Launch the GUI (mynd). Assuming it's in the path
-  import  Read and save todos from a given file
-  edit    Edit the todo list in your default editor ($EDITOR) [default]
-  dump    Dump all todos as json
-  config  Manage global configuration values
-  lsp     Start the language server
-  help    Print this message or the help of the given subcommand(s)
-
-Arguments:
-  [MESSAGE]  What to do
-
-Options:
-  -h, --help     Print help
-  -V, --version  Print version
+```sh
+todo url
 ```
 
-## Syntax Highlighting (Neovim)
+Common commands:
 
-There is a treesitter grammar for the `todo` syntax.
-To setup syntax Highlighting in Neovim, see [tree-sitter-todolang](https://github.com/Gnarus-G/tree-sitter-todolang)
+```text
+todo [MESSAGE]
+todo done <ID>...
+todo rm <ID>...
+todo ls [--full] [--quiet]
+todo dump
+todo edit
+todo import <FILE>
+todo config show
+todo config set --format binary|json
+todo config set --web-url https://host.example.ts.net:8444
+todo lsp
+```
 
-## Lsp setup
+## Install The PWA
 
-I doubt this language server will ever land into `neovim/nvim-lspconfig`, so here's an example
-of my lsp config setup.
+Open Mynd over HTTPS or localhost and use its install invitation; Chromium-based desktop browsers show a native **Install** button, while other supported browsers provide installation through their own menus.
+
+- Chromium, Chrome, Brave, and Edge on Linux: select **Install** or **Install page as app**.
+- Android browsers: select **Install app** or **Add to Home Screen**.
+- iOS and iPadOS browsers: use the Share menu and select **Add to Home Screen**.
+- Firefox desktop does not currently provide native manifest-based PWA installation.
+
+After desktop installation, `mynd` prefers the registered PWA and falls back to the default browser if the registration is absent or cannot launch.
+
+## Tailscale
+
+Tailscale is optional; Mynd does not require a particular tailnet name or machine hostname, and the installer derives the current MagicDNS name from `tailscale status`.
+
+Manual setup with default ports:
+
+```sh
+tailscale serve --bg --https=8444 http://127.0.0.1:4280
+tailscale status
+todo config set --web-url https://YOUR-CURRENT-MAGICDNS-NAME:8444
+```
+
+Use `tailscale serve status` to inspect active routes; Mynd should remain tailnet-only and should not be exposed with Tailscale Funnel.
+
+The PWA's **Mobile** panel displays the configured URL and generates its QR code locally without contacting a third-party QR service.
+
+## Service Operations
+
+```sh
+systemctl --user status mynd
+journalctl --user -u mynd -f
+systemctl --user restart mynd
+systemctl --user disable --now mynd
+```
+
+The service starts with the user's systemd session; users who intentionally need it before login can enable systemd lingering according to their distribution's policy.
+
+Default installation paths:
+
+```text
+~/.local/bin/todo
+~/.local/bin/mynd
+~/.local/bin/mynd-server
+${XDG_CONFIG_HOME:-~/.config}/systemd/user/mynd.service
+~/mynd/todo.bin
+```
+
+## Uninstall
+
+With the default paths:
+
+```sh
+systemctl --user disable --now mynd
+rm -f ~/.config/systemd/user/mynd.service
+systemctl --user daemon-reload
+rm -f ~/.local/bin/todo ~/.local/bin/mynd ~/.local/bin/mynd-server
+tailscale serve --https=8444 off
+```
+
+The uninstall commands deliberately leave `~/mynd` intact; remove that directory separately only when its todo data is no longer needed.
+
+## Development
+
+Run the API and Vite in separate terminals:
+
+```sh
+npm ci
+npm run build
+cargo run -p mynd-server
+npm run dev
+```
+
+Vite proxies `/api` to `127.0.0.1:4280`; release builds embed `build/` inside `mynd-server`.
+
+Verify the workspace:
+
+```sh
+sh -n install.sh
+npm run check
+npm run build
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+## LSP Setup
 
 ```lua
-local nvim_lsp = require("lspconfig");
-
-local configs = require 'lspconfig.configs'
-
-if not configs.todols then
-  configs.todols = {
-    default_config = {
-      cmd = { "todo", "lsp" },
-      filetypes = { "todolang" },
-    },
-  }
-end
-
-nvim_lsp.todols.setup({
-  on_attach = on_attach, --[[your on_attach function goes here]]
+require("lspconfig").todols.setup({
+  cmd = { "todo", "lsp" },
+  filetypes = { "todolang" },
   single_file_support = true,
-  --[[ capabilities = ... -- your capabilities here ]]
 })
 ```
 
-For codelens support in Neovim; Set it up so the codelenses refresh often, and have a convenient
-shortcut for running codelenses.
-
-```lua
-local codelens_augroup = vim.api.nvim_create_augroup("todols:codeLenses", { clear = true })
-
-vim.api.nvim_create_autocmd('LspAttach', {
-  desc = 'Sets up todols codelens autocommands',
-  pattern = { "*.td", "*.todo" },
-  group = codelens_augroup,
-  callback = function(event)
-    vim.api.nvim_create_autocmd({ 'CursorHold', 'BufEnter', 'InsertLeave' }, {
-      group = codelens_augroup,
-      buffer = event.buf,
-      callback = function()
-        vim.lsp.codelens.refresh({ bufnr = event.buf })
-      end
-    })
-
-    vim.api.nvim_create_autocmd('LspDetach', {
-      group = codelens_augroup,
-      buffer = event.buf,
-      callback = function(e)
-        vim.lsp.codelens.clear(e.data.client_id, e.buf)
-      end
-    })
-
-    -- If this action (codelens.run) is not already bound to a key.
-    -- i.e you don't already a keymap for running codelenses
-    vim.keymap.set('n', '<leader>lr', vim.lsp.codelens.run, { buffer = event.buf, remap = false })
-  end
-})
-```
-
-## Dev References
-
-https://github.com/tauri-apps/tauri-docs/blob/8cdc0505ffb9e78be768a0216bd91980306206a5/docs/guides/distribution/sign-android.md
-https://github.com/neovim/neovim/pull/13165
-https://github.com/ray-x/navigator.lua/blob/master/lua/navigator/lspwrapper.lua#L122
+The todo syntax tree-sitter grammar is available at [Gnarus-G/tree-sitter-todolang](https://github.com/Gnarus-G/tree-sitter-todolang).

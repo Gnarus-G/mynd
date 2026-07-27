@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Mynd focus mark</title>
+  <rect width="512" height="512" rx="112" fill="#17221c"/>
+  <path d="M208 104h-64a40 40 0 0 0-40 40v64M304 104h64a40 40 0 0 1 40 40v64M408 304v64a40 40 0 0 1-40 40h-64M208 408h-64a40 40 0 0 1-40-40v-64" fill="none" stroke="#c7f36b" stroke-width="32" stroke-linecap="square"/>
+  <rect x="194" y="194" width="124" height="124" rx="28" fill="#f06f52" transform="rotate(45 256 256)"/>
+</svg>

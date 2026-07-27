@@ -1,3 +1,705 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+:root {
+  font-family: "IBM Plex Sans Variable", sans-serif;
+  color: #17221c;
+  background: #17221c;
+  font-synthesis: none;
+  --ink: #17221c;
+  --ink-soft: #314038;
+  --paper: #f3f0e8;
+  --paper-bright: #faf8f2;
+  --paper-deep: #e5e1d7;
+  --lime: #c7f36b;
+  --coral: #f06f52;
+  --muted: #718078;
+  --rule: #d8d4ca;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--ink);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    var(--ink);
+  background-size: 32px 32px;
+}
+
+button,
+input { font: inherit; }
+
+button { color: inherit; }
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.app-shell { min-height: 100dvh; }
+
+.topbar {
+  width: min(820px, calc(100% - 40px));
+  height: 70px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--paper);
+  border-bottom: 1px solid rgba(243, 240, 232, 0.14);
+}
+
+.brand,
+.topbar-actions,
+.connection,
+.share-button {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+.brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+}
+
+.topbar-actions { gap: 18px; }
+
+.connection {
+  gap: 8px;
+  color: rgba(243, 240, 232, 0.62);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.63rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connection i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 0 4px rgba(199, 243, 107, 0.1);
+}
+
+.connection.offline i {
+  background: var(--coral);
+  box-shadow: 0 0 0 4px rgba(240, 111, 82, 0.1);
+}
+
+.share-button {
+  min-height: 38px;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid rgba(243, 240, 232, 0.22);
+  border-radius: 7px;
+  color: var(--paper);
+  background: transparent;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+
+.share-button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--lime);
+  background: var(--lime);
+}
+
+.share-button svg {
+  width: 17px;
+  fill: currentColor;
+}
+
+.install-invite {
+  width: min(820px, calc(100% - 40px));
+  min-height: 66px;
+  margin: 18px auto -14px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto 38px;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(199, 243, 107, 0.22);
+  border-radius: 10px;
+  color: var(--paper);
+  background: var(--ink-soft);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+}
+
+.install-invite img {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+}
+
+.install-invite strong,
+.install-invite span { display: block; }
+
+.install-invite strong {
+  margin-bottom: 2px;
+  font-size: 0.86rem;
+}
+
+.install-invite span {
+  color: rgba(243, 240, 232, 0.62);
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.install-action {
+  min-height: 38px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--lime);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.install-dismiss {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 7px;
+  color: rgba(243, 240, 232, 0.66);
+  background: transparent;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.install-dismiss:hover { background: rgba(243, 240, 232, 0.08); }
+
+main {
+  width: min(820px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 32px 0 72px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: rgba(243, 240, 232, 0.52);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.63rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.workspace {
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.22);
+}
+
+.capture-panel {
+  padding: 24px 26px 27px;
+  background: var(--paper-bright);
+  border-bottom: 1px solid var(--rule);
+}
+
+.capture-panel label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.capture-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.capture-row input {
+  min-width: 0;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--paper);
+  font-size: 1rem;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.capture-row input:focus {
+  outline: none;
+  border-color: var(--ink-soft);
+  background: white;
+}
+
+.capture-row input::placeholder { color: #9a9d96; }
+
+.capture-row button,
+.dialog-actions .primary {
+  min-width: 104px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--lime);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.capture-row button:hover:not(:disabled) { background: #b8e557; }
+
+.capture-row button svg {
+  width: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.error-message {
+  margin: 10px 0 0;
+  color: #af3d2e;
+  font-size: 0.78rem;
+}
+
+.ledger-heading {
+  min-height: 66px;
+  padding: 0 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ledger-heading h2,
+.share-dialog h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+}
+
+.text-button {
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.text-button:hover { color: var(--coral); }
+
+.todo-list {
+  margin: 0;
+  padding: 0 26px;
+  list-style: none;
+}
+
+.todo-list li {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--rule);
+  animation: ledger-entry 220ms ease-out both;
+}
+
+.todo-list li:last-child { border-bottom: 0; }
+
+@keyframes ledger-entry {
+  from { opacity: 0; transform: translateY(5px); }
+}
+
+.complete-button,
+.todo-actions button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.complete-button {
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid #8d9791;
+  border-radius: 6px;
+}
+
+.complete-button:hover:not(:disabled) { border-color: var(--ink); }
+
+.complete-button svg {
+  width: 15px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.6;
+  opacity: 0;
+}
+
+.complete-button.checked {
+  border-color: var(--lime);
+  background: var(--lime);
+}
+
+.complete-button.checked svg { opacity: 1; }
+
+.todo-copy {
+  min-width: 0;
+  padding: 14px 0;
+}
+
+.todo-copy p {
+  margin: 0 0 5px;
+  overflow-wrap: anywhere;
+  font-size: 0.94rem;
+  font-weight: 570;
+  line-height: 1.3;
+}
+
+.todo-copy time {
+  display: block;
+  color: #8a918d;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.todo-list li.done .todo-copy p {
+  color: #8d938f;
+  text-decoration: line-through;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0.42;
+  transition: opacity 140ms ease;
+}
+
+.todo-list li:hover .todo-actions,
+.todo-actions:focus-within { opacity: 1; }
+
+.todo-actions button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 7px;
+}
+
+.todo-actions button:hover:not(:disabled) { background: var(--paper-deep); }
+
+.todo-actions svg {
+  width: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+
+.todo-actions .delete-button:hover:not(:disabled) {
+  color: white;
+  background: var(--coral);
+}
+
+.empty-state,
+.loading-state {
+  min-height: 260px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.empty-state img {
+  width: 46px;
+  margin: 0 auto 16px;
+  border-radius: 10px;
+  opacity: 0.85;
+}
+
+.empty-state p {
+  margin: 0 0 4px;
+  font-weight: 630;
+}
+
+.empty-state small { color: var(--muted); }
+
+.loading-state {
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.loading-state i {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--lime);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.share-dialog {
+  width: min(460px, calc(100% - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+}
+
+.share-dialog::backdrop {
+  background: rgba(8, 14, 10, 0.76);
+  backdrop-filter: blur(7px);
+}
+
+.dialog-card {
+  position: relative;
+  padding: 32px;
+  overflow-y: auto;
+}
+
+.dialog-card .eyebrow { color: var(--muted); }
+
+.share-dialog h2 { font-size: 1.6rem; }
+
+.dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.dialog-close:hover { background: var(--paper-deep); }
+
+.dialog-intro {
+  margin: 12px 0 20px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.qr-frame {
+  width: fit-content;
+  margin: 0 auto 16px;
+  padding: 9px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.qr-frame canvas {
+  display: block;
+  max-width: 100%;
+  height: auto !important;
+}
+
+.share-dialog code {
+  display: block;
+  padding: 11px;
+  overflow-wrap: anywhere;
+  border-radius: 7px;
+  color: var(--ink-soft);
+  background: var(--paper-deep);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.66rem;
+  text-align: center;
+}
+
+.dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dialog-actions button {
+  min-height: 46px;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dialog-actions .primary { min-height: 46px; }
+
+.install-note {
+  margin: 18px 0 0;
+  padding-top: 15px;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.update-banner {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(243, 240, 232, 0.14);
+  border-radius: 9px;
+  color: var(--paper);
+  background: var(--ink-soft);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+  font-size: 0.78rem;
+}
+
+.update-banner button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--lime);
+  cursor: pointer;
+}
+
+@media (max-width: 620px) {
+  .topbar,
+  main,
+  .install-invite { width: calc(100% - 24px); }
+
+  .topbar { height: 64px; }
+
+  .connection { display: none; }
+
+  .share-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .share-button {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  main { padding: 20px 0 48px; }
+
+  .install-invite {
+    margin-top: 12px;
+    margin-bottom: -8px;
+    grid-template-columns: 38px minmax(0, 1fr) 34px;
+  }
+
+  .install-invite img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .install-action {
+    grid-column: 2 / 3;
+    width: fit-content;
+    margin-top: 4px;
+  }
+
+  .install-dismiss {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .workspace { border-radius: 11px; }
+
+  .capture-panel { padding: 18px; }
+
+  .capture-row { grid-template-columns: 1fr; }
+
+  .capture-row button { width: 100%; }
+
+  .ledger-heading { padding: 0 18px; }
+
+  .todo-list { padding: 0 12px 0 18px; }
+
+  .todo-list li {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 9px;
+    min-height: 82px;
+  }
+
+  .todo-actions {
+    display: grid;
+    grid-template-columns: 36px 36px;
+    opacity: 1;
+  }
+
+  .todo-actions button {
+    width: 36px;
+    height: 34px;
+  }
+
+  .todo-actions .delete-button {
+    grid-column: 1 / -1;
+    width: 72px;
+  }
+
+  .dialog-card { padding: 28px 20px 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
